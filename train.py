@@ -1,6 +1,10 @@
+import csv
+import pandas as pd
+
 from model import build_transformer
 from dataset import BilingualDataset, causal_mask
 from config import get_config, get_weights_file_path, latest_weights_file_path
+from temperature import save_cross_attention_temperatures
 
 import torchtext.datasets as datasets
 import torch
@@ -62,14 +66,7 @@ def run_validation(model, validation_ds, tokenizer_src, tokenizer_tgt, max_len, 
     expected = []
     predicted = []
 
-    try:
-        # get the console window width
-        with os.popen('stty size', 'r') as console:
-            _, console_width = console.read().split()
-            console_width = int(console_width)
-    except:
-        # If we can't get the console width, use 80 as default
-        console_width = 80
+    console_width = 80
 
     with torch.no_grad():
         for batch in validation_ds:
@@ -174,7 +171,7 @@ def get_ds(config):
     return train_dataloader, val_dataloader, tokenizer_src, tokenizer_tgt
 
 def get_model(config, vocab_src_len, vocab_tgt_len):
-    model = build_transformer(vocab_src_len, vocab_tgt_len, config["seq_len"], config['seq_len'], d_model=config['d_model'])
+    model = build_transformer(vocab_src_len, vocab_tgt_len, config["seq_len"], config['seq_len'], d_model=config['d_model'], N=6)
     return model
 
 def train_model(config):
@@ -202,23 +199,49 @@ def train_model(config):
 
     optimizer = torch.optim.Adam(model.parameters(), lr=config['lr'], eps=1e-9)
 
-    # If the user specified a model to preload before training, load it
+    # Setup loss CSV file for continuous saving
+    loss_csv_path = Path(f"{config['datasource']}_{config['model_folder']}") / 'loss_history.csv'
+    loss_csv_exists = loss_csv_path.exists()
+
+    if not loss_csv_exists:
+        with open(loss_csv_path, 'w', newline='') as f:
+            csv_writer = csv.writer(f)
+            csv_writer.writerow(['epoch', 'global_step', 'loss'])
+
+    # restore model/ training if crashes occur
     initial_epoch = 0
     global_step = 0
-    preload = config['preload']
-    model_filename = latest_weights_file_path(config) if preload == 'latest' else get_weights_file_path(config, preload) if preload else None
-    if model_filename:
+    loss_record = pd.DataFrame(columns=['epoch', 'global_step', 'loss'])
+    
+    if config['preload']:
+        model_filename = get_weights_file_path(config, config['preload'])
         print(f'Preloading model {model_filename}')
-        state = torch.load(model_filename)
-        model.load_state_dict(state['model_state_dict'])
+        state = torch.load(model_filename, map_location=device)
         initial_epoch = state['epoch'] + 1
+        model.load_state_dict(state['model_state_dict'])
         optimizer.load_state_dict(state['optimizer_state_dict'])
         global_step = state['global_step']
+        
+        # Clean up CSV: remove rows from epochs >= initial_epoch (interrupted training)
+        if loss_csv_path.exists():
+            loss_record = pd.read_csv(loss_csv_path)
+            # Keep only rows from completed epochs
+            loss_record = loss_record[loss_record['epoch'] < initial_epoch]
+            # Rewrite the CSV with clean data
+            loss_record.to_csv(loss_csv_path, index=False)
+            print(f"CSV cleaned: kept data up to epoch {initial_epoch - 1}")
     else:
-        print('No model to preload, starting from scratch')
+        # Training from zero: delete old loss history
+        if loss_csv_path.exists():
+            loss_csv_path.unlink()
+            print("Old loss_history.csv deleted. Starting fresh training.")
+        # Create new CSV with header
+        with open(loss_csv_path, 'w', newline='') as f:
+            csv_writer = csv.writer(f)
+            csv_writer.writerow(['epoch', 'global_step', 'loss'])
 
     loss_fn = nn.CrossEntropyLoss(ignore_index=tokenizer_src.token_to_id('[PAD]'), label_smoothing=0.1).to(device)
-
+    
     for epoch in range(initial_epoch, config['num_epochs']):
         torch.cuda.empty_cache()
         model.train()
@@ -242,6 +265,19 @@ def train_model(config):
             loss = loss_fn(proj_output.view(-1, tokenizer_tgt.get_vocab_size()), label.view(-1))
             batch_iterator.set_postfix({"loss": f"{loss.item():6.3f}"})
 
+            if global_step % 10 == 0:
+                # Save to DataFrame and append to CSV file immediately
+                new_row = pd.DataFrame({'epoch': [epoch], 'global_step': [global_step], 'loss': [loss.item()]})
+                loss_record = pd.concat([loss_record, new_row], ignore_index=True)
+                
+                # Write immediately to CSV file (append mode for crash safety)
+                with open(loss_csv_path, 'a', newline='') as f:
+                    csv_writer = csv.writer(f)
+                    csv_writer.writerow([epoch, global_step, loss.item()])
+
+            if global_step % 100 == 0:
+                run_validation(model, val_dataloader, tokenizer_src, tokenizer_tgt, config['seq_len'], device, lambda msg: batch_iterator.write(msg), global_step, writer)
+
             # Log the loss
             writer.add_scalar('train loss', loss.item(), global_step)
             writer.flush()
@@ -249,14 +285,14 @@ def train_model(config):
             # Backpropagate the loss
             loss.backward()
 
+            # Temperature: BEFORE zero_grad()!!!
+            save_cross_attention_temperatures(model, global_step, frequency=2)
+
             # Update the weights
             optimizer.step()
             optimizer.zero_grad(set_to_none=True)
 
             global_step += 1
-
-        # Run validation at the end of every epoch
-        run_validation(model, val_dataloader, tokenizer_src, tokenizer_tgt, config['seq_len'], device, lambda msg: batch_iterator.write(msg), global_step, writer)
 
         # Save the model at the end of every epoch
         model_filename = get_weights_file_path(config, f"{epoch:02d}")
@@ -270,5 +306,5 @@ def train_model(config):
 
 if __name__ == '__main__':
     warnings.filterwarnings("ignore")
-    config = get_config()
+    config = get_config(preload="26")
     train_model(config)

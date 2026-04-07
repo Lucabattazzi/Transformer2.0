@@ -3,5 +3,10 @@ __pycache__
 *.json
 runs/
 weights/
+opus_books_weights/
+
+tokenizer*.json
 
 wandb/
+envUmar/
+temperature/

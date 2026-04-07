@@ -1,9 +1,9 @@
 from pathlib import Path
 
-def get_config():
+def get_config(preload=None):
     return {
-        "batch_size": 8,
-        "num_epochs": 20,
+        "batch_size": 16,
+        "num_epochs": 28,
         "lr": 10**-4,
         "seq_len": 350,
         "d_model": 512,
@@ -12,7 +12,7 @@ def get_config():
         "lang_tgt": "it",
         "model_folder": "weights",
         "model_basename": "tmodel_",
-        "preload": "latest",
+        "preload": preload,
         "tokenizer_file": "tokenizer_{0}.json",
         "experiment_name": "runs/tmodel"
     }

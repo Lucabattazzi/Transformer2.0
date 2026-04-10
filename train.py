@@ -306,5 +306,5 @@ def train_model(config):
 
 if __name__ == '__main__':
     warnings.filterwarnings("ignore")
-    config = get_config(preload="26")
+    config = get_config(preload="27")
     train_model(config)

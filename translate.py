@@ -18,7 +18,7 @@ def translate(sentence: str):
 
     # Load the pretrained weights
     model_filename = latest_weights_file_path(config)
-    state = torch.load(model_filename)
+    state = torch.load(model_filename, map_location=device)
     model.load_state_dict(state['model_state_dict'])
 
     # if the sentence is a number use it as an index to the test set

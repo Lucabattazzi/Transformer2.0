@@ -6,15 +6,28 @@
 
 from datasets import load_dataset
 from pathlib import Path
+from huggingface_hub import login
+
+# Login automatico
+try:
+    with open("_token.txt", "r") as f:
+        token = f.read().strip()
+    login(token=token)
+    print("✓ Login su Hugging Face completato\n")
+except FileNotFoundError:
+    print("⚠ Token file not found - proceeding without auth\n")
+except Exception as e:
+    print(f"⚠ Login error: {e}\n")
 
 
 def prepare_datasets(
-    datasource: str = "opus_books",
+    datasource: str = "Helsinki-NLP/opus-100",
     lang_src: str = "en",
     lang_tgt: str = "it",
     train_split_ratio: float = 0.9,
     seed: int = 42,
-    dataset_folder: str = "Dataset"
+    dataset_folder: str = "Dataset",
+    max_samples: int = 300000
 ):
 
     
@@ -30,6 +43,11 @@ def prepare_datasets(
         f"{lang_src}-{lang_tgt}", 
         split='train'
     )
+
+    # If max_samples is set, sample a subset of the dataset
+    if max_samples and max_samples < len(ds_raw):
+        ds_raw = ds_raw.shuffle(seed=seed).select(range(max_samples))
+        print(f"Campionati {max_samples} esempi da {len(ds_raw)} totali")
     
     print(f"Dataset downloaded: {len(ds_raw)} esempi")
     
@@ -52,6 +70,16 @@ def prepare_datasets(
     full_path = dataset_path / "full_dataset"
     train_path = dataset_path / "train_set"
     val_path = dataset_path / "test_set"
+    
+    print(f"\nSalvataggio dataset...")
+    ds_raw.save_to_disk(str(full_path))
+    print(f"✓ Full dataset salvato in {full_path}")
+    
+    train_ds_raw.save_to_disk(str(train_path))
+    print(f"✓ Train set salvato in {train_path}")
+    
+    val_ds_raw.save_to_disk(str(val_path))
+    print(f"✓ Val set salvato in {val_path}")
     
     return {
         "full_dataset_path": str(full_path),

@@ -4,6 +4,7 @@ __pycache__
 runs/
 weights/
 opus_books_weights/
+_token*.txt
 
 tokenizer*.json
 

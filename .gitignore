@@ -1,6 +1,6 @@
 __pycache__
 *.pt
-*.json
+evaluation_results.json
 runs/
 weights/
 opus_books_weights/

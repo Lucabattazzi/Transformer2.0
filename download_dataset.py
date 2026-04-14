@@ -4,9 +4,12 @@
 #e lo salva in formato nativo Arrow. 
 
 
-from datasets import load_dataset
+from datasets import load_dataset, load_from_disk
 from pathlib import Path
 from huggingface_hub import login
+
+from train import get_or_build_tokenizer
+from config import get_config
 
 # Login automatico
 try:
@@ -19,17 +22,12 @@ except FileNotFoundError:
 except Exception as e:
     print(f"⚠ Login error: {e}\n")
 
-
-def prepare_datasets(
+def download_dataset(
     datasource: str = "Helsinki-NLP/opus-100",
     lang_src: str = "en",
     lang_tgt: str = "it",
-    train_split_ratio: float = 0.9,
-    seed: int = 42,
     dataset_folder: str = "Dataset",
-    max_samples: int = 300000
 ):
-
     
     # Crea la cartella Dataset se non esiste
     dataset_path = Path(dataset_folder)
@@ -43,6 +41,70 @@ def prepare_datasets(
         f"{lang_src}-{lang_tgt}", 
         split='train'
     )
+
+    # Salva i tre dataset in formato Arrow (nativo HuggingFace)
+    unfiltered_path = dataset_path / "unfiltered_dataset"
+    
+    print(f"\nSalvataggio dataset...")
+    ds_raw.save_to_disk(str(unfiltered_path))
+    print(f"✓ Full dataset salvato in {unfiltered_path}\n\n")
+
+
+def prepare_datasets(
+    train_split_ratio: float = 0.9,
+    seed: int = 42,
+    dataset_folder: str = "Dataset",
+    max_samples: int = 300000
+):
+    
+    print("Preparazione dataset...")
+
+    ds_raw = load_from_disk("Dataset/unfiltered_dataset")
+
+    # Crea la cartella Dataset se non esiste
+    dataset_path = Path(dataset_folder)
+
+    config = get_config(preload=None)
+    tokenizer_src = get_or_build_tokenizer(config, ds_raw, config['lang_src'])
+    tokenizer_tgt = get_or_build_tokenizer(config, ds_raw, config['lang_tgt'])
+
+    # Find the maximum length of each sentence in the source and target sentence
+    max_len_src = 0
+    max_len_tgt = 0
+
+    for item in ds_raw:
+        src_ids = tokenizer_src.encode(item['translation'][config['lang_src']]).ids
+        tgt_ids = tokenizer_tgt.encode(item['translation'][config['lang_tgt']]).ids
+        max_len_src = max(max_len_src, len(src_ids))
+        max_len_tgt = max(max_len_tgt, len(tgt_ids))
+
+    print(f'Max length of source sentence: {max_len_src}')
+    print(f'Max length of target sentence: {max_len_tgt}')
+
+    # STEP 1: Filtra dataset per mantenere solo frasi < 350 token
+    print("\nFiltrando dataset per frasi < 350 token...")
+    max_seq_len = 350
+    
+    def is_valid_length(example):
+        src_ids = tokenizer_src.encode(example['translation'][config['lang_src']]).ids
+        tgt_ids = tokenizer_tgt.encode(example['translation'][config['lang_tgt']]).ids
+        return len(src_ids) < max_seq_len and len(tgt_ids) < max_seq_len
+    
+    ds_raw = ds_raw.filter(is_valid_length)
+    print(f"✓ Dataset filtrato: {len(ds_raw)} frasi rimaste\n")
+
+    # Find the maximum length of each sentence in the source and target sentence
+    max_len_src = 0
+    max_len_tgt = 0
+
+    for item in ds_raw:
+        src_ids = tokenizer_src.encode(item['translation'][config['lang_src']]).ids
+        tgt_ids = tokenizer_tgt.encode(item['translation'][config['lang_tgt']]).ids
+        max_len_src = max(max_len_src, len(src_ids))
+        max_len_tgt = max(max_len_tgt, len(tgt_ids))
+
+    print(f'Max length of source sentence: {max_len_src}')
+    print(f'Max length of target sentence: {max_len_tgt}')
 
     # If max_samples is set, sample a subset of the dataset
     if max_samples and max_samples < len(ds_raw):
@@ -88,5 +150,6 @@ def prepare_datasets(
     }
 
 
-if __name__ == "__main__":    
+if __name__ == "__main__":   
+    # download_dataset() 
     prepare_datasets()

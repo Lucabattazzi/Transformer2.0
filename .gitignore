@@ -10,3 +10,5 @@ tokenizer*.json
 
 wandb/
 envUmar/
+
+Dataset/unfiltered_dataset/

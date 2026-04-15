@@ -23,12 +23,12 @@ def translate(sentence: str):
 
     # if the sentence is a number use it as an index to the test set
     label = ""
-    if type(sentence) == int or sentence.isdigit():
-        id = int(sentence)
-        ds = load_dataset(f"{config['datasource']}", f"{config['lang_src']}-{config['lang_tgt']}", split='all')
-        ds = BilingualDataset(ds, tokenizer_src, tokenizer_tgt, config['lang_src'], config['lang_tgt'], config['seq_len'])
-        sentence = ds[id]['src_text']
-        label = ds[id]["tgt_text"]
+    # if type(sentence) == int or sentence.isdigit():
+    #     id = int(sentence)
+    #     ds = load_dataset(f"{config['datasource']}", f"{config['lang_src']}-{config['lang_tgt']}", split='all')
+    #     ds = BilingualDataset(ds, tokenizer_src, tokenizer_tgt, config['lang_src'], config['lang_tgt'], config['seq_len'])
+    #     sentence = ds[id]['src_text']
+    #     label = ds[id]["tgt_text"]
     seq_len = config['seq_len']
 
     # translate the sentence
@@ -78,4 +78,4 @@ def translate(sentence: str):
 #read sentence from argument
 
 if __name__ == '__main__':
-    translate(sys.argv[1] if len(sys.argv) > 1 else "I am not a very good a student.")
+    translate(sys.argv[1] if len(sys.argv) > 1 else "World and beauty ")

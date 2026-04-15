@@ -127,6 +127,10 @@ def prepare_datasets(
         test_size=1 - train_split_ratio,
         seed=seed
     ).values()
+
+    ds_raw.save_to_disk(dataset_path / "full_dataset")
+    train_ds_raw.save_to_disk(dataset_path / "train_set")
+    val_ds_raw.save_to_disk(dataset_path / "test_set")
     
     # Salva i tre dataset in formato Arrow (nativo HuggingFace)
     full_path = dataset_path / "full_dataset"
@@ -151,5 +155,5 @@ def prepare_datasets(
 
 
 if __name__ == "__main__":   
-    # download_dataset() 
+    download_dataset() 
     prepare_datasets()

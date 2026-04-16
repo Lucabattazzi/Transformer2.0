@@ -29,7 +29,7 @@ DPI = 100                 # Risoluzione del grafico
 
 def main():
     # Carica i dati
-    df = pd.read_csv('../Data/loss_history.csv')
+    df = pd.read_csv('loss_partial.txt')
     
     # Crea la figura
     plt.figure(figsize=FIGURE_SIZE, dpi=DPI)

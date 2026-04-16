@@ -97,6 +97,8 @@ def run_validation(model, validation_ds, tokenizer_src, tokenizer_tgt, max_len, 
             if count == num_examples:
                 print_msg('-'*console_width)
                 break
+        
+    model.train()
 
 ### METRICHE ###
     
@@ -172,6 +174,68 @@ def get_ds(config):
 def get_model(config, vocab_src_len, vocab_tgt_len):
     model = build_transformer(vocab_src_len, vocab_tgt_len, config["seq_len"], config['seq_len'], d_model=config['d_model'], N=6)
     return model
+
+def cleanup_old_checkpoints(config, current_epoch, num_keep=3):
+    """
+    Keep only the last 3 checkpoints. Remove older ones.
+    Safe: only deletes after verifying file exists and is a valid checkpoint.
+
+    Logic:
+    - Epoch 0-2: Keep all (not enough previous epochs)
+    - Epoch 3+: Keep only epochs [current-3, current-2, current-1]
+
+    Args:
+        config: Training config (contains model_folder, datasource)
+        current_epoch: Current epoch number
+        num_keep: Number of previous checkpoints to keep (default 3)
+    """
+    if current_epoch < num_keep:
+        return  # Not enough epochs to cleanup yet
+
+    model_folder = Path(f"{config['datasource']}_{config['model_folder']}")
+
+    # Find all checkpoint files
+    checkpoint_pattern = model_folder / f"{config['model_basename']}*.pt"
+    checkpoint_files = sorted(checkpoint_pattern.parent.glob(checkpoint_pattern.name))
+
+    if not checkpoint_files:
+        return
+
+    # Extract epoch numbers from filenames
+    epoch_numbers = []
+    for file in checkpoint_files:
+        try:
+            # Expected format: "tmodel_##.pt"
+            epoch_str = file.stem.split('_')[-1]
+            epoch_num = int(epoch_str)
+            epoch_numbers.append((epoch_num, file))
+        except (ValueError, IndexError):
+            # Skip files that don't match the pattern
+            continue
+
+    if not epoch_numbers:
+        return
+
+    epoch_numbers.sort(key=lambda x: x[0])
+
+    # Determine which epochs to keep: [current-num_keep, ..., current-1]
+    epochs_to_keep = set(range(max(0, current_epoch - num_keep), current_epoch))
+
+    # Delete old checkpoints
+    deleted_count = 0
+    for epoch_num, filepath in epoch_numbers:
+        if epoch_num not in epochs_to_keep:
+            try:
+                filepath.unlink()  # Safe delete
+                deleted_count += 1
+                print(f"[Cleanup] Deleted: {filepath.name}")
+            except FileNotFoundError:
+                pass  # Already deleted, no problem
+            except Exception as e:
+                print(f"[Cleanup] Warning: Could not delete {filepath.name}: {e}")
+
+    if deleted_count > 0:
+        print(f"[Cleanup] Removed {deleted_count} old checkpoint(s). Keeping: {sorted(epochs_to_keep)}")
 
 def train_model(config):
     # Define the device

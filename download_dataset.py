@@ -54,7 +54,7 @@ def prepare_datasets(
     train_split_ratio: float = 0.9,
     seed: int = 42,
     dataset_folder: str = "Dataset",
-    max_samples: int = 300000
+    max_samples: int = 10
 ):
     
     print("Preparazione dataset...")

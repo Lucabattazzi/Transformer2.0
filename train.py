@@ -172,21 +172,24 @@ def get_ds(config):
     return train_dataloader, val_dataloader, tokenizer_src, tokenizer_tgt
 
 def get_model(config, vocab_src_len, vocab_tgt_len):
-    model = build_transformer(vocab_src_len, vocab_tgt_len, config["seq_len"], config['seq_len'], d_model=config['d_model'], N=6)
+    # Dropout set to 0.2
+    model = build_transformer(vocab_src_len, vocab_tgt_len, config["seq_len"], config['seq_len'], d_model=config['d_model'], N=6, dropout=0.3)
     return model
 
 def cleanup_old_checkpoints(config, current_epoch, num_keep=3):
     """
-    Keep only the last 3 checkpoints. Remove older ones.
-    Safe: only deletes after verifying file exists and is a valid checkpoint.
+    Keep only the last N checkpoints from epochs BEFORE current_epoch.
+    Safe: only deletes checkpoints older than [current_epoch - num_keep].
+    Does NOT delete checkpoints >= current_epoch (those are from future runs).
 
     Logic:
     - Epoch 0-2: Keep all (not enough previous epochs)
-    - Epoch 3+: Keep only epochs [current-3, current-2, current-1]
+    - Epoch 3+: Delete epochs < [current-num_keep], keep [current-num_keep, ..., current-1]
+    - Never touch epochs >= current_epoch (from interrupted past runs)
 
     Args:
         config: Training config (contains model_folder, datasource)
-        current_epoch: Current epoch number
+        current_epoch: Current epoch number (about to start training)
         num_keep: Number of previous checkpoints to keep (default 3)
     """
     if current_epoch < num_keep:
@@ -195,8 +198,7 @@ def cleanup_old_checkpoints(config, current_epoch, num_keep=3):
     model_folder = Path(f"{config['datasource']}_{config['model_folder']}")
 
     # Find all checkpoint files
-    checkpoint_pattern = model_folder / f"{config['model_basename']}*.pt"
-    checkpoint_files = sorted(checkpoint_pattern.parent.glob(checkpoint_pattern.name))
+    checkpoint_files = sorted(model_folder.glob(f"{config['model_basename']}*.pt"))
 
     if not checkpoint_files:
         return
@@ -218,13 +220,15 @@ def cleanup_old_checkpoints(config, current_epoch, num_keep=3):
 
     epoch_numbers.sort(key=lambda x: x[0])
 
-    # Determine which epochs to keep: [current-num_keep, ..., current-1]
-    epochs_to_keep = set(range(max(0, current_epoch - num_keep), current_epoch))
+    # Only delete epochs OLDER than [current_epoch - num_keep]
+    # This preserves future epochs (>= current_epoch) as they're from past interrupted runs
+    cutoff_epoch = max(0, current_epoch - num_keep)
 
     # Delete old checkpoints
     deleted_count = 0
     for epoch_num, filepath in epoch_numbers:
-        if epoch_num not in epochs_to_keep:
+        # Only delete if strictly less than cutoff (keep cutoff and newer)
+        if epoch_num < cutoff_epoch:
             try:
                 filepath.unlink()  # Safe delete
                 deleted_count += 1
@@ -235,7 +239,7 @@ def cleanup_old_checkpoints(config, current_epoch, num_keep=3):
                 print(f"[Cleanup] Warning: Could not delete {filepath.name}: {e}")
 
     if deleted_count > 0:
-        print(f"[Cleanup] Removed {deleted_count} old checkpoint(s). Keeping: {sorted(epochs_to_keep)}")
+        print(f"[Cleanup] Removed {deleted_count} old checkpoint(s). Keeping epochs >= {cutoff_epoch}")
 
 def train_model(config):
     # Define the device
@@ -318,6 +322,7 @@ def train_model(config):
     
     for epoch in range(initial_epoch, config['num_epochs']):
         torch.cuda.empty_cache()
+        cleanup_old_checkpoints(config, epoch, num_keep=3)
         model.train()
         batch_iterator = tqdm(train_dataloader, desc=f"Processing Epoch {epoch:02d}")
         for batch in batch_iterator:
@@ -386,5 +391,5 @@ def train_model(config):
 
 if __name__ == '__main__':
     warnings.filterwarnings("ignore")
-    config = get_config(preload="15")
+    config = get_config(preload=None)
     train_model(config)

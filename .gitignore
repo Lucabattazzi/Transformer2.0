@@ -6,6 +6,7 @@ weights/
 opus_books_weights/
 
 tokenizer*.json
+_token.txt
 
 wandb/
 envUmar/

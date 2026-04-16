@@ -198,6 +198,13 @@ def train_model(config):
 
     optimizer = torch.optim.Adam(model.parameters(), lr=config['lr'], eps=1e-9)
 
+    # Learning rate scheduler as in "Attention is All You Need"
+    def lr_lambda(step):
+        step = step + 1  # step is 0-based, but formula uses 1-based indexing
+        return config['d_model'] ** -0.5 * min(step ** -0.5, step * config['warmup_steps'] ** -1.5)
+    
+    scheduler = LambdaLR(optimizer, lr_lambda)
+
     # Setup loss CSV file for continuous saving
     loss_csv_path = Path(f"{config['datasource']}_{config['model_folder']}") / 'loss_history.csv'
     loss_csv_exists = loss_csv_path.exists()
@@ -219,6 +226,10 @@ def train_model(config):
         initial_epoch = state['epoch'] + 1
         model.load_state_dict(state['model_state_dict'])
         optimizer.load_state_dict(state['optimizer_state_dict'])
+        if 'scheduler_state_dict' in state:
+            scheduler.load_state_dict(state['scheduler_state_dict'])
+        else:
+            print('Warning: checkpoint does not contain scheduler state. Scheduler will be initialized from current optimizer state.')
         global_step = state['global_step']
         
         # Clean up CSV: remove rows from epochs >= initial_epoch (interrupted training)
@@ -274,9 +285,9 @@ def train_model(config):
                     csv_writer = csv.writer(f)
                     csv_writer.writerow([epoch, global_step, loss.item()])
 
-            if global_step % 1== 0:
+            if global_step % 10000 == 0:
                 run_validation(model, val_dataloader, tokenizer_src, tokenizer_tgt, config['seq_len'], device, lambda msg: batch_iterator.write(msg), global_step, writer)
-
+        
             # Log the loss
             writer.add_scalar('train loss', loss.item(), global_step)
             writer.flush()
@@ -285,11 +296,16 @@ def train_model(config):
             loss.backward()
 
             # Temperature: BEFORE zero_grad()!!!
-            save_cross_attention_temperatures(model, global_step, frequency=2)
+            # save_cross_attention_temperatures(model, global_step, frequency=2)
 
             # Update the weights
             optimizer.step()
+            scheduler.step()
             optimizer.zero_grad(set_to_none=True)
+
+            # Log the learning rate
+            writer.add_scalar('learning_rate', scheduler.get_last_lr()[0], global_step)
+            writer.flush()
 
             global_step += 1
 
@@ -299,11 +315,12 @@ def train_model(config):
             'epoch': epoch,
             'model_state_dict': model.state_dict(),
             'optimizer_state_dict': optimizer.state_dict(),
+            'scheduler_state_dict': scheduler.state_dict(),
             'global_step': global_step
         }, model_filename)
 
 
 if __name__ == '__main__':
     warnings.filterwarnings("ignore")
-    config = get_config(preload="26")
+    config = get_config(preload="15")
     train_model(config)

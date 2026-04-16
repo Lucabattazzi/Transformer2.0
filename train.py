@@ -139,7 +139,7 @@ def get_or_build_tokenizer(config, ds, lang):
         tokenizer = Tokenizer.from_file(str(tokenizer_path))
     return tokenizer
 
-def get_ds(config):
+def get_ds(config, validation=False):
     
     ds_raw = load_from_disk("Dataset/full_dataset")
     train_ds_raw = load_from_disk("Dataset/train_set")
@@ -167,7 +167,7 @@ def get_ds(config):
     
 
     train_dataloader = DataLoader(train_ds, batch_size=config['batch_size'], shuffle=True)
-    val_dataloader = DataLoader(val_ds, batch_size=1, shuffle=True)
+    val_dataloader = DataLoader(val_ds, batch_size=1, shuffle=not validation) # batch size 1 for validation to simplify greedy decoding
 
     return train_dataloader, val_dataloader, tokenizer_src, tokenizer_tgt
 

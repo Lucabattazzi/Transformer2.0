@@ -6,7 +6,7 @@ def get_config(preload=None):
         "num_epochs": 30,
         "lr": 10**-4,
         "seq_len": 360,
-        "d_model": 512,
+        "d_model": 128,
         "datasource": 'opus_books',
         "lang_src": "en",
         "lang_tgt": "it",

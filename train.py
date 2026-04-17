@@ -172,8 +172,8 @@ def get_ds(config):
     return train_dataloader, val_dataloader, tokenizer_src, tokenizer_tgt
 
 def get_model(config, vocab_src_len, vocab_tgt_len):
-    # Dropout set to 0.2
-    model = build_transformer(vocab_src_len, vocab_tgt_len, config["seq_len"], config['seq_len'], d_model=config['d_model'], N=6, dropout=0.3)
+    ## dropout to 0.1 
+    model = build_transformer(vocab_src_len, vocab_tgt_len, config["seq_len"], config['seq_len'], d_model=config['d_model'], N=4, dropout=0.1)
     return model
 
 def cleanup_old_checkpoints(config, current_epoch, num_keep=3):
@@ -271,6 +271,7 @@ def train_model(config):
         step = step + 1  # step is 0-based, but formula uses 1-based indexing
         return config['d_model'] ** -0.5 * min(step ** -0.5, step * config['warmup_steps'] ** -1.5)
     
+
     scheduler = LambdaLR(optimizer, lr_lambda)
 
     # Setup loss CSV file for continuous saving
@@ -354,7 +355,7 @@ def train_model(config):
                     csv_writer = csv.writer(f)
                     csv_writer.writerow([epoch, global_step, loss.item()])
 
-            if global_step % 10000 == 0:
+            if global_step % 1000 == 0:
                 run_validation(model, val_dataloader, tokenizer_src, tokenizer_tgt, config['seq_len'], device, lambda msg: batch_iterator.write(msg), global_step, writer)
         
             # Log the loss

@@ -4,7 +4,7 @@ def get_config(preload=None):
     return {
         "batch_size": 14,
         "num_epochs": 30,
-        "lr": 10**-4,
+        "lr": 10**-2,
         "seq_len": 360,
         "d_model": 128,
         "datasource": 'opus_books',
@@ -15,7 +15,7 @@ def get_config(preload=None):
         "preload": preload,
         "tokenizer_file": "tokenizer_{0}.json",
         "experiment_name": "runs/tmodel",
-        "warmup_steps": 4000
+        "warmup_steps": 2400
     }
 
 def get_weights_file_path(config, epoch: str):

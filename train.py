@@ -342,7 +342,8 @@ def train_model(config, scheduler=True):
         step = step + 1  # step is 0-based, but formula uses 1-based indexing
 
         if scheduler:
-            return config['d_model'] ** -0.5 * min(step ** -0.5, step * config['warmup_steps'] ** -1.5)
+            return 10*config['d_model'] ** -0.5 * min(step ** -0.5, step * config['warmup_steps'] ** -1.5)
+        # aggiunto il fattore 10 per avere un lr massimo nell'ordine di 10^-2, che è empiricamente il lr giusto per il modello piccolo.
         else:
             return config['lr']
 

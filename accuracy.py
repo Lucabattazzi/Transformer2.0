@@ -39,6 +39,7 @@ def translate_sentence(sentence, model, tokenizer_src, tokenizer_tgt, max_len, d
     
 def evaluate_metrics(model, val_dataloader, tokenizer_src, tokenizer_tgt, 
                      seq_len, device, num_examples=10, prnt=False):
+    
     model.eval()
     
     source_texts = []
@@ -93,6 +94,8 @@ def evaluate_metrics(model, val_dataloader, tokenizer_src, tokenizer_tgt,
             print(f"  TGT  : {tgt}")
             print(f"  PRED : {pred}")
         print()
+        
+    model.train()
 
     return {"bleu": bleu, "wer": wer, "cer": cer}
 

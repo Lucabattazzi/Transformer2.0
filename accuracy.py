@@ -37,6 +37,9 @@ def translate_sentence(sentence, model, tokenizer_src, tokenizer_tgt, max_len, d
         output_text = tokenizer_tgt.decode(output_ids.detach().cpu().numpy())
         return output_text
     
+
+# copiata in train.py per risolovere problema dipendenze ricorsive
+
 def evaluate_metrics(model, val_dataloader, tokenizer_src, tokenizer_tgt, 
                      seq_len, device, num_examples=10, prnt=False):
     
@@ -113,19 +116,19 @@ if __name__ == "__main__":
 
     metrics = evaluate_metrics(
         model, val_dataloader, tokenizer_src, tokenizer_tgt,
-        config['seq_len'], device, num_examples=10
+        config['seq_len'], device, num_examples=100, prnt=True
         )
 
     print("\n" + "="*50 + "\n")
     print(f"Full Model - BLEU: {metrics['bleu']:.4f}\n")
 
-    for i in range(7):
-        model = setup_model()
-        zero_attention_head(model=model, layer_idx=0, head_idx=i)
+    # for i in range(7):
+    #     model = setup_model()
+    #     zero_attention_head(model=model, layer_idx=0, head_idx=i)
 
-        metrics = evaluate_metrics(
-        model, val_dataloader, tokenizer_src, tokenizer_tgt,
-        config['seq_len'], device, num_examples=10
-        )
+    #     metrics = evaluate_metrics(
+    #     model, val_dataloader, tokenizer_src, tokenizer_tgt,
+    #     config['seq_len'], device, num_examples=10
+    #     )
 
-        print(f"Layer {i} zeroed - BLEU: {metrics['bleu']:.4f}\n")
+    #     print(f"Layer {i} zeroed - BLEU: {metrics['bleu']:.4f}\n")

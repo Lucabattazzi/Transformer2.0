@@ -1,7 +1,6 @@
 import csv
 import pandas as pd
 
-from accuracy import evaluate_metrics
 from model import build_transformer
 from dataset import BilingualDataset, causal_mask
 from config import get_config, get_weights_file_path, latest_weights_file_path
@@ -25,7 +24,7 @@ from tokenizers.models import WordLevel
 from tokenizers.trainers import WordLevelTrainer
 from tokenizers.pre_tokenizers import Whitespace
 
-import torchmetrics
+from torchmetrics.text import CharErrorRate, WordErrorRate, BLEUScore
 from torch.utils.tensorboard import SummaryWriter
 
 def greedy_decode(model, source, source_mask, tokenizer_src, tokenizer_tgt, max_len, device):
@@ -103,25 +102,25 @@ def run_validation(model, validation_ds, tokenizer_src, tokenizer_tgt, max_len, 
 
 ### METRICHE ###
     
-    if writer:
-        # Evaluate the character error rate
-        # Compute the char error rate 
-        metric = torchmetrics.CharErrorRate()
-        cer = metric(predicted, expected)
-        writer.add_scalar('validation cer', cer, global_step)
-        writer.flush()
+    # if writer:
+    #     # Evaluate the character error rate
+    #     # Compute the char error rate 
+    #     metric = torchmetrics.CharErrorRate()
+    #     cer = metric(predicted, expected)
+    #     writer.add_scalar('validation cer', cer, global_step)
+    #     writer.flush()
 
-        # Compute the word error rate
-        metric = torchmetrics.WordErrorRate()
-        wer = metric(predicted, expected)
-        writer.add_scalar('validation wer', wer, global_step)
-        writer.flush()
+    #     # Compute the word error rate
+    #     metric = torchmetrics.WordErrorRate()
+    #     wer = metric(predicted, expected)
+    #     writer.add_scalar('validation wer', wer, global_step)
+    #     writer.flush()
 
-        # Compute the BLEU metric
-        metric = torchmetrics.BLEUScore()
-        bleu = metric(predicted, expected)
-        writer.add_scalar('validation BLEU', bleu, global_step)
-        writer.flush()
+    #     # Compute the BLEU metric
+    #     metric = torchmetrics.BLEUScore()
+    #     bleu = metric(predicted, expected)
+    #     writer.add_scalar('validation BLEU', bleu, global_step)
+    #     writer.flush()
 
 def get_all_sentences(ds, lang):
     for item in ds:
@@ -312,6 +311,70 @@ def cleanup_old_checkpoints(config, current_epoch, num_keep=3):
 
     if deleted_count > 0:
         print(f"[Cleanup] Removed {deleted_count} old checkpoint(s). Keeping epochs >= {cutoff_epoch}")
+
+
+def evaluate_metrics(model, val_dataloader, tokenizer_src, tokenizer_tgt, 
+                     seq_len, device, num_examples=10, prnt=False):
+    
+    model.eval()
+    
+    source_texts = []
+    expected = []
+    predicted = []
+
+    with torch.no_grad():
+        for i, batch in enumerate(val_dataloader):
+            if i >= num_examples:
+                break
+
+            encoder_input = batch["encoder_input"].to(device)
+            encoder_mask  = batch["encoder_mask"].to(device)
+
+            assert encoder_input.size(0) == 1, "Batch size must be 1"
+
+            model_out = greedy_decode(
+                model, encoder_input, encoder_mask,
+                tokenizer_src, tokenizer_tgt, seq_len, device
+            )
+
+            source_texts.append(batch["src_text"][0])
+            expected.append(batch["tgt_text"][0])
+            predicted.append(tokenizer_tgt.decode(model_out.detach().cpu().numpy()))
+
+    # --- Metriche ---
+    cer_metric  = CharErrorRate()
+    wer_metric  = WordErrorRate()
+    bleu_metric = BLEUScore()
+
+    expected_bleu = [[e] for e in expected]
+
+    cer  = cer_metric(predicted, expected).item()
+    wer  = wer_metric(predicted, expected).item()
+    bleu = bleu_metric(predicted, expected_bleu).item()
+
+    # --- Stampa risultati ---
+    sep = "=" * 50
+    if prnt:
+        print(sep)
+        print(f"  Valutazione su {num_examples} esempi")
+        print(sep)
+        print(f"  BLEU score      : {bleu:.4f}  (↑ migliore)")
+        print(f"  Word Error Rate : {wer:.4f}  (↓ migliore)")
+        print(f"  Char Error Rate : {cer:.4f}  (↓ migliore)")
+        print(sep)
+
+        # --- Qualche esempio per sanity check ---
+        print("\nCampione predizioni:\n")
+        for src, tgt, pred in zip(source_texts[:3], expected[:3], predicted[:3]):
+            print(f"  SRC  : {src}")
+            print(f"  TGT  : {tgt}")
+            print(f"  PRED : {pred}")
+        print()
+        
+    model.train()
+
+    return {"bleu": bleu, "wer": wer, "cer": cer}
+
 
 def train_model(config, scheduler=True):
     # Define the device

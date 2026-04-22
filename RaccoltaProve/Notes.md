@@ -7,7 +7,7 @@ Documentazione delle varie run di addestramento per la selezione degli iperparam
 
 ## Scheduler - Attention Is All You Need
 
-$$\text{lrate} = d_{\text{model}}^{-0.5} \cdot \min(\text{step\_num}^{-0.5}, \text{step\_num} \cdot \text{warmup\_steps}^{-1.5})$$
+$$\eta = \frac{\alpha}{\sqrt{d_{\text{model}}}} \cdot \min(\text{step\_num}^{-0.5}, \text{step\_num} \cdot \text{warmup\_steps}^{-1.5})$$
 
 ---
 

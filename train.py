@@ -176,30 +176,76 @@ def get_model(config, vocab_src_len, vocab_tgt_len):
     model = build_transformer(vocab_src_len, vocab_tgt_len, config["seq_len"], config['seq_len'], d_model=config['d_model'], N=4, dropout=0.1)
     return model
 
-def save_train_loss(loss_value, epoch, global_step, loss_csv_path, loss_record):
+def save_loss(loss_value, epoch, global_step, csv_path, loss_record=None):
     """
-    Save loss value to DataFrame and CSV file for crash safety and monitoring.
+    Generic function to save loss value to CSV file and optionally to DataFrame.
+    Used for both training and validation loss.
     
     Args:
         loss_value: Loss value to save
         epoch: Current epoch number
         global_step: Current training step
-        loss_csv_path: Path to the loss history CSV file
-        loss_record: Current DataFrame with loss records
+        csv_path: Path to the loss history CSV file
+        loss_record: Optional DataFrame to update (for training loss tracking)
     
     Returns:
-        Updated loss_record DataFrame
+        Updated loss_record DataFrame if provided, else None
     """
-    # Save to DataFrame and append to CSV file immediately
-    new_row = pd.DataFrame({'epoch': [epoch], 'global_step': [global_step], 'loss': [loss_value]})
-    loss_record = pd.concat([loss_record, new_row], ignore_index=True)
+    # Update DataFrame if provided (useful for training loss)
+    if loss_record is not None:
+        new_row = pd.DataFrame({'epoch': [epoch], 'global_step': [global_step], 'loss': [loss_value]})
+        loss_record = pd.concat([loss_record, new_row], ignore_index=True)
     
     # Write immediately to CSV file (append mode for crash safety)
-    with open(loss_csv_path, 'a', newline='') as f:
+    with open(csv_path, 'a', newline='') as f:
         csv_writer = csv.writer(f)
         csv_writer.writerow([epoch, global_step, loss_value])
     
     return loss_record
+
+def calculate_validation_loss(model, validation_ds, loss_fn, tokenizer_tgt, device, num_samples=None):
+    """
+    Calculate loss on validation set.
+    
+    Args:
+        model: Transformer model
+        validation_ds: Validation dataloader
+        loss_fn: Loss function
+        tokenizer_tgt: Target tokenizer
+        device: Device (cpu/cuda/mps)
+        num_samples: Number of validation samples to evaluate (None = all)
+    
+    Returns:
+        Average loss value
+    """
+    model.eval()
+    total_loss = 0
+    count = 0
+    
+    with torch.no_grad():
+        for batch in validation_ds:
+            if num_samples is not None and count >= num_samples:
+                break
+            
+            encoder_input = batch["encoder_input"].to(device)
+            decoder_input = batch["decoder_input"].to(device)
+            encoder_mask = batch["encoder_mask"].to(device)
+            decoder_mask = batch["decoder_mask"].to(device)
+            label = batch["label"].to(device)
+            
+            # Run through model
+            encoder_output = model.encode(encoder_input, encoder_mask)
+            decoder_output = model.decode(encoder_output, encoder_mask, decoder_input, decoder_mask)
+            proj_output = model.project(decoder_output)
+            
+            # Calculate loss
+            loss = loss_fn(proj_output.view(-1, tokenizer_tgt.get_vocab_size()), label.view(-1))
+            total_loss += loss.item()
+            count += 1
+    
+    avg_loss = total_loss / count if count > 0 else 0
+    model.train()
+    return avg_loss
 
 def cleanup_old_checkpoints(config, current_epoch, num_keep=3):
     """
@@ -311,6 +357,15 @@ def train_model(config, scheduler=True):
             csv_writer = csv.writer(f)
             csv_writer.writerow(['epoch', 'global_step', 'loss'])
 
+    # Setup validation loss CSV file for continuous saving
+    val_loss_csv_path = Path(f"{config['datasource']}_{config['model_folder']}") / 'val_loss_history.csv'
+    val_loss_csv_exists = val_loss_csv_path.exists()
+
+    if not val_loss_csv_exists:
+        with open(val_loss_csv_path, 'w', newline='') as f:
+            csv_writer = csv.writer(f)
+            csv_writer.writerow(['epoch', 'global_step', 'loss'])
+
 
     initial_epoch = 0
     global_step = 0
@@ -337,6 +392,15 @@ def train_model(config, scheduler=True):
             # Rewrite the CSV with clean data
             loss_record.to_csv(loss_csv_path, index=False)
             print(f"CSV cleaned: kept data up to epoch {initial_epoch - 1}")
+        
+        # Clean up validation loss CSV as well
+        if val_loss_csv_path.exists():
+            val_loss_record = pd.read_csv(val_loss_csv_path)
+            # Keep only rows from completed epochs
+            val_loss_record = val_loss_record[val_loss_record['epoch'] < initial_epoch]
+            # Rewrite the CSV with clean data
+            val_loss_record.to_csv(val_loss_csv_path, index=False)
+            print(f"Validation loss CSV cleaned: kept data up to epoch {initial_epoch - 1}")
     else:
         # Training from zero: delete old loss history
         if loss_csv_path.exists():
@@ -344,6 +408,15 @@ def train_model(config, scheduler=True):
             print("Old loss_history.csv deleted. Starting fresh training.")
         # Create new CSV with header
         with open(loss_csv_path, 'w', newline='') as f:
+            csv_writer = csv.writer(f)
+            csv_writer.writerow(['epoch', 'global_step', 'loss'])
+        
+        # Delete old validation loss history
+        if val_loss_csv_path.exists():
+            val_loss_csv_path.unlink()
+            print("Old val_loss_history.csv deleted. Starting fresh training.")
+        # Create new validation loss CSV with header
+        with open(val_loss_csv_path, 'w', newline='') as f:
             csv_writer = csv.writer(f)
             csv_writer.writerow(['epoch', 'global_step', 'loss'])
 
@@ -374,10 +447,14 @@ def train_model(config, scheduler=True):
             batch_iterator.set_postfix({"loss": f"{loss.item():6.3f}"})
 
             if global_step % 10 == 0:
-                loss_record = save_train_loss(loss.item(), epoch, global_step, loss_csv_path, loss_record)
+                loss_record = save_loss(loss.item(), epoch, global_step, loss_csv_path, loss_record)
 
             if global_step % 1000 == 0:
                 run_validation(model, val_dataloader, tokenizer_src, tokenizer_tgt, config['seq_len'], device, lambda msg: batch_iterator.write(msg), global_step, writer)
+                
+                # Calculate and save validation loss on n samples
+                val_loss = calculate_validation_loss(model, val_dataloader, loss_fn, tokenizer_tgt, device, num_samples=100)
+                save_loss(val_loss, epoch, global_step, val_loss_csv_path)
         
             # Log the loss
             writer.add_scalar('train loss', loss.item(), global_step)

@@ -100,28 +100,6 @@ def run_validation(model, validation_ds, tokenizer_src, tokenizer_tgt, max_len, 
         
     model.train()
 
-### METRICHE ###
-    
-    # if writer:
-    #     # Evaluate the character error rate
-    #     # Compute the char error rate 
-    #     metric = torchmetrics.CharErrorRate()
-    #     cer = metric(predicted, expected)
-    #     writer.add_scalar('validation cer', cer, global_step)
-    #     writer.flush()
-
-    #     # Compute the word error rate
-    #     metric = torchmetrics.WordErrorRate()
-    #     wer = metric(predicted, expected)
-    #     writer.add_scalar('validation wer', wer, global_step)
-    #     writer.flush()
-
-    #     # Compute the BLEU metric
-    #     metric = torchmetrics.BLEUScore()
-    #     bleu = metric(predicted, expected)
-    #     writer.add_scalar('validation BLEU', bleu, global_step)
-    #     writer.flush()
-
 def get_all_sentences(ds, lang):
     for item in ds:
         yield item['translation'][lang]
@@ -129,7 +107,6 @@ def get_all_sentences(ds, lang):
 def get_or_build_tokenizer(config, ds, lang):
     tokenizer_path = Path(config['tokenizer_file'].format(lang))
     if not Path.exists(tokenizer_path):
-        # Most code taken from: https://huggingface.co/docs/tokenizers/quicktour
         tokenizer = Tokenizer(WordLevel(unk_token="[UNK]"))
         tokenizer.pre_tokenizer = Whitespace()
         trainer = WordLevelTrainer(special_tokens=["[UNK]", "[PAD]", "[SOS]", "[EOS]"], min_frequency=2)
@@ -176,32 +153,20 @@ def get_model(config, vocab_src_len, vocab_tgt_len):
     model = build_transformer(vocab_src_len, vocab_tgt_len, config["seq_len"], config['seq_len'], d_model=config['d_model'], N=4, dropout=0.1)
     return model
 
-def write_to_csv(value, epoch, global_step, csv_path, record=None):
+def write_to_csv(value, epoch, global_step, csv_path):
     """
-    Generic function to save loss value to CSV file and optionally to DataFrame.
-    Used for both training and validation loss.
+    Save value to CSV file.
     
     Args:
-        value: Loss value to save
+        value: Value to save (loss, metric, etc.)
         epoch: Current epoch number
         global_step: Current training step
-        csv_path: Path to the loss history CSV file
-        record: Optional DataFrame to update (for training loss tracking)
-    
-    Returns:
-        Updated record DataFrame if provided, else None
+        csv_path: Path to the CSV file
     """
-    # Update DataFrame if provided (useful for training loss)
-    if record is not None:
-        new_row = pd.DataFrame({'epoch': [epoch], 'global_step': [global_step], 'loss': [value]})
-        record = pd.concat([record, new_row], ignore_index=True)
-    
     # Write immediately to CSV file (append mode for crash safety)
     with open(csv_path, 'a', newline='') as f:
         csv_writer = csv.writer(f)
         csv_writer.writerow([epoch, global_step, value])
-    
-    return record
 
 def calculate_validation_loss(model, validation_ds, loss_fn, tokenizer_tgt, device, num_samples=None):
     """
@@ -247,7 +212,41 @@ def calculate_validation_loss(model, validation_ds, loss_fn, tokenizer_tgt, devi
     model.train()
     return avg_loss
 
-def cleanup_old_checkpoints(config, current_epoch, num_keep=3):
+def cleanup_csv_file(csv_path, keep_until_epoch):
+    """
+    Remove rows from CSV file for epochs >= keep_until_epoch (interrupted training).
+    Keeps only rows from completed epochs.
+    
+    Args:
+        csv_path: Path to the CSV file
+        keep_until_epoch: Keep data only up to this epoch (exclusive)
+    """
+    if csv_path.exists():
+        record = pd.read_csv(csv_path)
+        # Keep only rows from completed epochs
+        record = record[record['epoch'] < keep_until_epoch]
+        # Rewrite the CSV with clean data
+        record.to_csv(csv_path, index=False)
+        print(f"{csv_path.name} cleaned: kept data up to epoch {keep_until_epoch - 1}")
+
+def initialize_csv_file(csv_path, column_names):
+    """
+    Initialize a CSV file with column headers if it doesn't exist.
+    
+    Args:
+        csv_path: Path to the CSV file
+        column_names: List of column names for the header row
+    
+    Returns:
+        The Path object
+    """
+    if not csv_path.exists():
+        with open(csv_path, 'w', newline='') as f:
+            csv_writer = csv.writer(f)
+            csv_writer.writerow(column_names)
+    return csv_path
+
+def cleanup_old_weights(config, current_epoch, num_keep=3):
     """
     Keep only the last N checkpoints from epochs BEFORE current_epoch.
     Safe: only deletes checkpoints older than [current_epoch - num_keep].
@@ -377,18 +376,12 @@ def evaluate_metrics(model, val_dataloader, tokenizer_src, tokenizer_tgt,
 
 
 def train_model(config, scheduler=True):
-    # Define the device
+    
     device = "cuda" if torch.cuda.is_available() else "mps" if torch.has_mps or torch.backends.mps.is_available() else "cpu"
     print("Using device:", device)
     if (device == 'cuda'):
         print(f"Device name: {torch.cuda.get_device_name(device.index)}")
         print(f"Device memory: {torch.cuda.get_device_properties(device.index).total_memory / 1024 ** 3} GB")
-    # elif (device == 'mps'):
-    #     print(f"Device name: <mps>")
-    # else:
-    #     print("NOTE: If you have a GPU, consider using it for training.")
-    #     print("      On a Windows machine with NVidia GPU, check this video: https://www.youtube.com/watch?v=GMSjDTU8Zlc")
-    #     print("      On a Mac machine, run: pip3 install --pre torch torchvision torchaudio torchtext --index-url https://download.pytorch.org/whl/nightly/cpu")
     device = torch.device(device)
 
     # Make sure the weights folder exists
@@ -413,35 +406,21 @@ def train_model(config, scheduler=True):
 
     scheduler = LambdaLR(optimizer, lr_lambda)
 
-    # Setup loss CSV file for continuous saving
-    loss_csv_path = Path(f"{config['datasource']}_{config['model_folder']}") / 'loss_history.csv'
-    loss_csv_exists = loss_csv_path.exists()
-
-    if not loss_csv_exists:
-        with open(loss_csv_path, 'w', newline='') as f:
-            csv_writer = csv.writer(f)
-            csv_writer.writerow(['epoch', 'global_step', 'loss'])
-
-
-
-    # Setup validation loss CSV file for continuous saving
-    val_loss_csv_path = Path(f"{config['datasource']}_{config['model_folder']}") / 'val_loss_history.csv'
-    val_loss_csv_exists = val_loss_csv_path.exists()
-
-    if not val_loss_csv_exists:
-        with open(val_loss_csv_path, 'w', newline='') as f:
-            csv_writer = csv.writer(f)
-            csv_writer.writerow(['epoch', 'global_step', 'loss'])
-
-
-    # Setup bleu CSV file for continuous saving
-    bleu_csv_path = Path(f"{config['datasource']}_{config['model_folder']}") / 'bleu_history.csv'
-    bleu_csv_exists = bleu_csv_path.exists()
-
-    if not bleu_csv_exists:
-        with open(bleu_csv_path, 'w', newline='') as f:
-            csv_writer = csv.writer(f)
-            csv_writer.writerow(['epoch', 'global_step', 'loss'])
+    # Setup CSV files for continuous saving
+    loss_csv_path = initialize_csv_file(
+        Path(f"{config['datasource']}_{config['model_folder']}") / 'train_loss_history.csv',
+        ['epoch', 'global_step', 'loss']
+    )
+    
+    val_loss_csv_path = initialize_csv_file(
+        Path(f"{config['datasource']}_{config['model_folder']}") / 'val_loss_history.csv',
+        ['epoch', 'global_step', 'loss']
+    )
+    
+    bleu_csv_path = initialize_csv_file(
+        Path(f"{config['datasource']}_{config['model_folder']}") / 'bleu_history.csv',
+        ['epoch', 'global_step', 'bleu']
+    )
 
 
     initial_epoch = 0
@@ -460,65 +439,27 @@ def train_model(config, scheduler=True):
             print('Warning: checkpoint does not contain scheduler state. Scheduler will be initialized from current optimizer state.')
         global_step = state['global_step']
         
-        # Clean up CSV: remove rows from epochs >= initial_epoch (interrupted training)
-        if loss_csv_path.exists():
-            loss_record = pd.read_csv(loss_csv_path)
-            # Keep only rows from completed epochs
-            loss_record = loss_record[loss_record['epoch'] < initial_epoch]
-            # Rewrite the CSV with clean data
-            loss_record.to_csv(loss_csv_path, index=False)
-            print(f"CSV cleaned: kept data up to epoch {initial_epoch - 1}")
-        
-        # Clean up validation loss CSV as well
-        if val_loss_csv_path.exists():
-            val_record = pd.read_csv(val_loss_csv_path)
-            # Keep only rows from completed epochs
-            val_record = val_record[val_record['epoch'] < initial_epoch]
-            # Rewrite the CSV with clean data
-            val_record.to_csv(val_loss_csv_path, index=False)
-            print(f"Validation loss CSV cleaned: kept data up to epoch {initial_epoch - 1}")
-
-        # Clean up BLEU CSV as well
-        if bleu_csv_path.exists():
-            bleu_record = pd.read_csv(bleu_csv_path)
-            # Keep only rows from completed epochs
-            bleu_record = bleu_record[bleu_record['epoch'] < initial_epoch]
-            # Rewrite the CSV with clean data
-            bleu_record.to_csv(bleu_csv_path, index=False)
-            print(f"BLEU CSV cleaned: kept data up to epoch {initial_epoch - 1}")
+        # Clean up CSV files: remove rows from epochs >= initial_epoch (interrupted training)
+        cleanup_csv_file(loss_csv_path, initial_epoch)
+        cleanup_csv_file(val_loss_csv_path, initial_epoch)
+        cleanup_csv_file(bleu_csv_path, initial_epoch)
     else:
-        # Training from zero: delete old loss history
-        if loss_csv_path.exists():
-            loss_csv_path.unlink()
-            print("Old loss_history.csv deleted. Starting fresh training.")
-        # Create new CSV with header
-        with open(loss_csv_path, 'w', newline='') as f:
-            csv_writer = csv.writer(f)
-            csv_writer.writerow(['epoch', 'global_step', 'loss'])
-        
-        # Delete old validation loss history
-        if val_loss_csv_path.exists():
-            val_loss_csv_path.unlink()
-            print("Old val_loss_history.csv deleted. Starting fresh training.")
-        # Create new validation loss CSV with header
-        with open(val_loss_csv_path, 'w', newline='') as f:
-            csv_writer = csv.writer(f)
-            csv_writer.writerow(['epoch', 'global_step', 'loss'])
-
-        # Delete old BLEU history
-        if bleu_csv_path.exists():
-            bleu_csv_path.unlink()
-            print("Old bleu_history.csv deleted. Starting fresh training.")
-        # Create new BLEU CSV with header
-        with open(bleu_csv_path, 'w', newline='') as f:
-            csv_writer = csv.writer(f)
-            csv_writer.writerow(['epoch', 'global_step', 'bleu'])
+        # Training from zero: delete and recreate all CSV files
+        for csv_path, columns in [
+            (loss_csv_path, ['epoch', 'global_step', 'loss']),
+            (val_loss_csv_path, ['epoch', 'global_step', 'loss']),
+            (bleu_csv_path, ['epoch', 'global_step', 'bleu'])
+        ]:
+            if csv_path.exists():
+                csv_path.unlink()
+                print(f"Old {csv_path.name} deleted. Starting fresh training.")
+            initialize_csv_file(csv_path, columns)
 
     loss_fn = nn.CrossEntropyLoss(ignore_index=tokenizer_src.token_to_id('[PAD]'), label_smoothing=0.1).to(device)
     
     for epoch in range(initial_epoch, config['num_epochs']):
         torch.cuda.empty_cache()
-        cleanup_old_checkpoints(config, epoch, num_keep=3)
+        cleanup_old_weights(config, epoch, num_keep=3)
         model.train()
         batch_iterator = tqdm(train_dataloader, desc=f"Processing Epoch {epoch:02d}")
         for batch in batch_iterator:
@@ -541,18 +482,18 @@ def train_model(config, scheduler=True):
             batch_iterator.set_postfix({"loss": f"{loss.item():6.3f}"})
 
             if global_step % 10 == 0:
-                loss_record = write_to_csv(loss.item(), epoch, global_step, loss_csv_path, loss_record)
+                write_to_csv(loss.item(), epoch, global_step, loss_csv_path)
 
             if global_step % 1000 == 0:
                 run_validation(model, val_dataloader, tokenizer_src, tokenizer_tgt, config['seq_len'], device, lambda msg: batch_iterator.write(msg), global_step, writer)
 
                 bleu = evaluate_metrics(model, val_dataloader, tokenizer_src, tokenizer_tgt, 
                      config['seq_len'], device, num_examples=100, prnt=False)['bleu']
-                write_to_csv(bleu, epoch, global_step, bleu_csv_path, bleu_record)
+                write_to_csv(bleu, epoch, global_step, bleu_csv_path)
                 
                 # Calculate and save validation loss on n samples
                 val_loss = calculate_validation_loss(model, val_dataloader, loss_fn, tokenizer_tgt, device, num_samples=100)
-                write_to_csv(val_loss, epoch, global_step, val_loss_csv_path, val_record)
+                write_to_csv(val_loss, epoch, global_step, val_loss_csv_path)
         
             # Log the loss
             writer.add_scalar('train loss', loss.item(), global_step)
@@ -588,5 +529,5 @@ def train_model(config, scheduler=True):
 
 if __name__ == '__main__':
     warnings.filterwarnings("ignore")
-    config = get_config(preload='07')
+    config = get_config(preload=None)
     train_model(config, scheduler=True)

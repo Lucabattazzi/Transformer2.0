@@ -176,6 +176,31 @@ def get_model(config, vocab_src_len, vocab_tgt_len):
     model = build_transformer(vocab_src_len, vocab_tgt_len, config["seq_len"], config['seq_len'], d_model=config['d_model'], N=4, dropout=0.1)
     return model
 
+def save_train_loss(loss_value, epoch, global_step, loss_csv_path, loss_record):
+    """
+    Save loss value to DataFrame and CSV file for crash safety and monitoring.
+    
+    Args:
+        loss_value: Loss value to save
+        epoch: Current epoch number
+        global_step: Current training step
+        loss_csv_path: Path to the loss history CSV file
+        loss_record: Current DataFrame with loss records
+    
+    Returns:
+        Updated loss_record DataFrame
+    """
+    # Save to DataFrame and append to CSV file immediately
+    new_row = pd.DataFrame({'epoch': [epoch], 'global_step': [global_step], 'loss': [loss_value]})
+    loss_record = pd.concat([loss_record, new_row], ignore_index=True)
+    
+    # Write immediately to CSV file (append mode for crash safety)
+    with open(loss_csv_path, 'a', newline='') as f:
+        csv_writer = csv.writer(f)
+        csv_writer.writerow([epoch, global_step, loss_value])
+    
+    return loss_record
+
 def cleanup_old_checkpoints(config, current_epoch, num_keep=3):
     """
     Keep only the last N checkpoints from epochs BEFORE current_epoch.
@@ -241,7 +266,7 @@ def cleanup_old_checkpoints(config, current_epoch, num_keep=3):
     if deleted_count > 0:
         print(f"[Cleanup] Removed {deleted_count} old checkpoint(s). Keeping epochs >= {cutoff_epoch}")
 
-def train_model(config):
+def train_model(config, scheduler=True):
     # Define the device
     device = "cuda" if torch.cuda.is_available() else "mps" if torch.has_mps or torch.backends.mps.is_available() else "cpu"
     print("Using device:", device)
@@ -269,8 +294,11 @@ def train_model(config):
     # Learning rate scheduler as in "Attention is All You Need"
     def lr_lambda(step):
         step = step + 1  # step is 0-based, but formula uses 1-based indexing
-        return config['d_model'] ** -0.5 * min(step ** -0.5, step * config['warmup_steps'] ** -1.5)
-    
+
+        if scheduler:
+            return config['d_model'] ** -0.5 * min(step ** -0.5, step * config['warmup_steps'] ** -1.5)
+        else:
+            return config['lr']
 
     scheduler = LambdaLR(optimizer, lr_lambda)
 
@@ -346,14 +374,7 @@ def train_model(config):
             batch_iterator.set_postfix({"loss": f"{loss.item():6.3f}"})
 
             if global_step % 10 == 0:
-                # Save to DataFrame and append to CSV file immediately
-                new_row = pd.DataFrame({'epoch': [epoch], 'global_step': [global_step], 'loss': [loss.item()]})
-                loss_record = pd.concat([loss_record, new_row], ignore_index=True)
-                
-                # Write immediately to CSV file (append mode for crash safety)
-                with open(loss_csv_path, 'a', newline='') as f:
-                    csv_writer = csv.writer(f)
-                    csv_writer.writerow([epoch, global_step, loss.item()])
+                loss_record = save_train_loss(loss.item(), epoch, global_step, loss_csv_path, loss_record)
 
             if global_step % 1000 == 0:
                 run_validation(model, val_dataloader, tokenizer_src, tokenizer_tgt, config['seq_len'], device, lambda msg: batch_iterator.write(msg), global_step, writer)
@@ -393,4 +414,4 @@ def train_model(config):
 if __name__ == '__main__':
     warnings.filterwarnings("ignore")
     config = get_config(preload=None)
-    train_model(config)
+    train_model(config, scheduler=True)

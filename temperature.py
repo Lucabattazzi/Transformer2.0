@@ -113,6 +113,7 @@ def save_cross_attention_temperatures(model, global_step, frequency=50, temp_dir
         print(f"Errore in save_cross_attention_temperatures: {e}")
 
 
+### NON SAPPIAMO COSA SERVA, SOSPETTO CHE FACCIA LA STESSA DI QUELLA SOPRA
 def mean_temperature(temp_dir="temperature", h=8):
     """
     Calcola la temperatura media per ogni head e layer a partire dai file CSV.
@@ -256,7 +257,56 @@ def zero_attention_head(model, layer_idx, head_idx, h=8):
     
     print(f"Head {head_idx} del layer {layer_idx} azzerata (colonne {start_idx}:{end_idx})")
 
+
+def rank_heads_by_temperature(temp_dir="temperature", num_layers=6, h=8):
+    """
+    Legge i file HeadTemperature per ogni layer e restituisce 6 DataFrames
+    ordinati per temperatura crescente.
+    
+    Args:
+        temp_dir: directory dove sono salvati i file
+        num_layers: numero di layer (default 6)
+        h: numero di heads per layer (default 8)
+    
+    Returns:
+        Dizionario {layer_idx: DataFrame} dove ogni DataFrame ha colonne [layer, head, temperature]
+        ordinato in modo crescente per temperatura
+    """
+    temp_path = Path(temp_dir)
+    rank_dict = {}
+    
+    for layer_idx in range(num_layers):
+        head_temp_file = temp_path / f'HeadTemperatureCrossAttention_{layer_idx}.csv'
+        
+        try:
+            # Leggi il file
+            df = pd.read_csv(head_temp_file)
+            
+            # Converti in forma "lunga" con colonne [layer, head, temperature]
+            data = []
+            for head_idx in range(h):
+                head_col = f'head_{head_idx}'
+                if head_col in df.columns:
+                    temp_value = df[head_col].values[0]
+                    data.append({'layer': layer_idx, 'head': head_idx, 'temperature': temp_value})
+            
+            # Crea il DataFrame e ordinalo per temperature crescente
+            df_layer = pd.DataFrame(data)
+            df_layer = df_layer.sort_values('temperature', ascending=True).reset_index(drop=True)
+            
+            rank_dict[layer_idx] = df_layer
+
+            
+        except FileNotFoundError:
+            print(f"✗ Errore: file HeadTemperatureCrossAttention_{layer_idx}.csv non trovato")
+    
+    return rank_dict
+
+
 if __name__ == "__main__":
 
-
-    head_temperature()
+    rank_heads_by_temperature(temp_dir="temperature", num_layers=6, h=8)
+    ranking = rank_heads_by_temperature()
+    for layer in range(6):
+        print(f"\n=== Layer {layer} ===")
+        print(ranking[layer].to_string(index=False))

@@ -311,7 +311,7 @@ def train_model(config, scheduler=True):
             csv_writer = csv.writer(f)
             csv_writer.writerow(['epoch', 'global_step', 'loss'])
 
-    # restore model/ training if crashes occur
+
     initial_epoch = 0
     global_step = 0
     loss_record = pd.DataFrame(columns=['epoch', 'global_step', 'loss'])

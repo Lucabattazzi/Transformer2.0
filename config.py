@@ -2,8 +2,8 @@ from pathlib import Path
 
 def get_config(preload=None):
     return {
-        "batch_size": 14,
-        "num_epochs": 30,
+        "batch_size": 18,
+        "num_epochs": 31,
         "lr": 10**-2,
         "seq_len": 360,
         "d_model": 128,
@@ -15,7 +15,7 @@ def get_config(preload=None):
         "preload": preload,
         "tokenizer_file": "tokenizer_{0}.json",
         "experiment_name": "runs/tmodel",
-        "warmup_steps": 2400
+        "warmup_steps": 3*2400 # dataset triplicato rispetto a quello piccolo
     }
 
 def get_weights_file_path(config, epoch: str):

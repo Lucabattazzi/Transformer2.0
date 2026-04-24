@@ -33,7 +33,6 @@ def initialize_temperature_files(temp_dir="temperature"):
     
     return files
 
-
 def save_cross_attention_temperatures(model, global_step, frequency=50, temp_dir="temperature", h=8):
     """
     Salva la norma dei gradienti della cross-attention ogni `frequency` iterazioni.
@@ -112,30 +111,6 @@ def save_cross_attention_temperatures(model, global_step, frequency=50, temp_dir
     except Exception as e:
         print(f"Errore in save_cross_attention_temperatures: {e}")
 
-
-### NON SAPPIAMO COSA SERVA, SOSPETTO CHE FACCIA LA STESSA DI QUELLA SOPRA
-def mean_temperature(temp_dir="temperature", h=8):
-    """
-    Calcola la temperatura media per ogni head e layer a partire dai file CSV.
-    
-    Args:
-        temp_dir: directory dove sono salvati i file
-        h: numero di heads
-    """
-    temp_path = Path(temp_dir)
-    results = []
-
-    for file_path in sorted(temp_path.glob('crossAttention*.csv')):
-        df = pd.read_csv(file_path)
-        head_columns = [col for col in df.columns if col.startswith('head_')][:h]
-        mean_temps = df[head_columns].mean()
-        results.append(mean_temps.values)
-
-    output_df = pd.DataFrame(results, columns=[f'head_{j}' for j in range(h)])
-    output_df.index.name = 'file_index'
-    output_df.to_csv(temp_path / 'mean_temperatures.csv')
-
-
 def equilibrium_temperature(temp_dir="temperature", h=8):
     """
     Calcola la temperatura di equilibrio (media sulle iterazioni) per ogni head e layer.
@@ -177,7 +152,6 @@ def equilibrium_temperature(temp_dir="temperature", h=8):
                 writer.writerow(header)
                 # Scrivi i dati di equilibrio
                 writer.writerow(equilibrium_temps)
-
 
 def head_temperature(temp_dir="temperature", h=8):
     """
@@ -233,7 +207,6 @@ def head_temperature(temp_dir="temperature", h=8):
         except FileNotFoundError as e:
             print(f"Errore: file mancante per layer {layer_idx}: {e}")
 
-
 def zero_attention_head(model, layer_idx, head_idx, h=8):
     """
     Azzera i pesi di una attention head specifica (Query, Key, Value) in un determinato layer.
@@ -256,7 +229,6 @@ def zero_attention_head(model, layer_idx, head_idx, h=8):
         matrix.weight.data[:, start_idx:end_idx].zero_()
     
     print(f"Head {head_idx} del layer {layer_idx} azzerata (colonne {start_idx}:{end_idx})")
-
 
 def rank_heads_by_temperature(temp_dir="temperature", num_layers=6, h=8):
     """
@@ -302,11 +274,13 @@ def rank_heads_by_temperature(temp_dir="temperature", num_layers=6, h=8):
     
     return rank_dict
 
-
 if __name__ == "__main__":
+
+    # equilibrium_temperature()
+    # head_temperature()
 
     rank_heads_by_temperature(temp_dir="temperature", num_layers=6, h=8)
     ranking = rank_heads_by_temperature()
-    for layer in range(6):
+    for layer in range(4):
         print(f"\n=== Layer {layer} ===")
         print(ranking[layer].to_string(index=False))

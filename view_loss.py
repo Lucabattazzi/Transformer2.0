@@ -3,15 +3,21 @@ import matplotlib.pyplot as plt
 from pathlib import Path
 
 path = "opus_books_weights"
-train = 'train'
-val = "val"
+train = 'train_loss'
+val = "val_loss"
+bleu = "bleu"
 
 def view_loss(var, csv_path):
     """Plot a single loss series from CSV file."""
-    df = pd.read_csv(f"{csv_path}/{var}_loss_history.csv")
+    df = pd.read_csv(f"{csv_path}/{var}_history.csv")
+
+    temp_path = 'bleu'
+    
+    if len(var.split('_')) > 1:
+        temp_path = 'loss'
 
     plt.figure(figsize=(12, 6), dpi=100)
-    plt.plot(df['global_step'], df['loss'], marker='.', linestyle='', alpha=0.7)
+    plt.plot(df['global_step'], df[temp_path], marker='.', linestyle='', alpha=0.7)
     plt.xlabel('Global Step')
     plt.ylabel('Loss')
     plt.title(f"{var.capitalize()} Loss")
@@ -47,8 +53,8 @@ def compare_losses(var1, var2, csv_path):
 
 if __name__ == "__main__":
     # Plot singolo
-    # view_loss(train, path)
+    view_loss(bleu, path)
     
     # Plot comparativo (due serie)
-    compare_losses(train, val, path)
+    # compare_losses(train, val, path)
 

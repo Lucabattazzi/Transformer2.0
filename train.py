@@ -57,7 +57,6 @@ def greedy_decode(model, source, source_mask, tokenizer_src, tokenizer_tgt, max_
 
     return decoder_input.squeeze(0)
 
-
 def run_validation(model, validation_ds, tokenizer_src, tokenizer_tgt, max_len, device, print_msg, global_step, writer, num_examples=2):
     model.eval()
     count = 0
@@ -311,9 +310,8 @@ def cleanup_old_weights(config, current_epoch, num_keep=3):
     if deleted_count > 0:
         print(f"[Cleanup] Removed {deleted_count} old checkpoint(s). Keeping epochs >= {cutoff_epoch}")
 
-
 def evaluate_metrics(model, val_dataloader, tokenizer_src, tokenizer_tgt, 
-                     seq_len, device, num_examples=10, prnt=False):
+                     seq_len, device, num_examples=10, n_gram=2, prnt=False):
     
     model.eval()
     
@@ -343,7 +341,7 @@ def evaluate_metrics(model, val_dataloader, tokenizer_src, tokenizer_tgt,
     # --- Metriche ---
     cer_metric  = CharErrorRate()
     wer_metric  = WordErrorRate()
-    bleu_metric = BLEUScore()
+    bleu_metric = BLEUScore(n_gram=n_gram)
 
     expected_bleu = [[e] for e in expected]
 
@@ -373,7 +371,6 @@ def evaluate_metrics(model, val_dataloader, tokenizer_src, tokenizer_tgt,
     model.train()
 
     return {"bleu": bleu, "wer": wer, "cer": cer}
-
 
 def train_model(config, scheduler=True):
     
@@ -484,15 +481,18 @@ def train_model(config, scheduler=True):
             if global_step % 10 == 0:
                 write_to_csv(loss.item(), epoch, global_step, loss_csv_path)
 
-            if global_step % 1000 == 0:
-                run_validation(model, val_dataloader, tokenizer_src, tokenizer_tgt, config['seq_len'], device, lambda msg: batch_iterator.write(msg), global_step, writer)
+            # if global_step % 4000 == 0:
+            #     run_validation(model, val_dataloader, tokenizer_src, tokenizer_tgt, config['seq_len'], device, lambda msg: batch_iterator.write(msg), global_step, writer)
 
-                bleu = evaluate_metrics(model, val_dataloader, tokenizer_src, tokenizer_tgt, 
-                     config['seq_len'], device, num_examples=100, prnt=False)['bleu']
-                write_to_csv(bleu, epoch, global_step, bleu_csv_path)
+            # if global_step % 2000 == 0:
+            #     bleu = evaluate_metrics(model, val_dataloader, tokenizer_src, tokenizer_tgt, 
+            #          config['seq_len'], device, num_examples= 25, prnt=False)['bleu']
+            #     write_to_csv(bleu, epoch, global_step, bleu_csv_path)
                 
                 # Calculate and save validation loss on n samples
-                val_loss = calculate_validation_loss(model, val_dataloader, loss_fn, tokenizer_tgt, device, num_samples=100)
+
+            if global_step % 500 == 0:
+                val_loss = calculate_validation_loss(model, val_dataloader, loss_fn, tokenizer_tgt, device, num_samples=500)
                 write_to_csv(val_loss, epoch, global_step, val_loss_csv_path)
         
             # Log the loss
@@ -503,7 +503,7 @@ def train_model(config, scheduler=True):
             loss.backward()
 
             # Temperature: BEFORE zero_grad()!!!
-            # save_cross_attention_temperatures(model, global_step, frequency=2)
+            save_cross_attention_temperatures(model, global_step, frequency=2)
 
             # Update the weights
             optimizer.step()
@@ -529,5 +529,5 @@ def train_model(config, scheduler=True):
 
 if __name__ == '__main__':
     warnings.filterwarnings("ignore")
-    config = get_config(preload=None)
+    config = get_config(preload="29")
     train_model(config, scheduler=True)

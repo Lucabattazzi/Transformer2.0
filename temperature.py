@@ -228,7 +228,7 @@ def zero_attention_head(model, layer_idx, head_idx, h=8):
     for matrix in [cross_attn.w_q, cross_attn.w_k, cross_attn.w_v]:
         matrix.weight.data[:, start_idx:end_idx].zero_()
     
-    print(f"Head {head_idx} del layer {layer_idx} azzerata (colonne {start_idx}:{end_idx})")
+    # print(f"Head {head_idx} del layer {layer_idx} azzerata (colonne {start_idx}:{end_idx})")
 
 def rank_heads_by_temperature(temp_dir="temperature", num_layers=4, h=8):
     """

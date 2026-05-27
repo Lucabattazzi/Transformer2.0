@@ -47,75 +47,103 @@ if __name__ == "__main__":
     print("Using device:", device)
     config = get_config()
     train_dataloader, val_dataloader, tokenizer_src, tokenizer_tgt = get_ds(config, validation=True)
-
     model = setup_model()
 
-    num_examples = 100
+    num_examples = 5
+    data = [[],[]]
 
-    metrics = evaluate_metrics(
+    # Layer_0
+    hottest_heads = [5, 3, 6]
+    coldest_heads = [1, 4, 0]
+
+    print("\n" + "="*50 + "\n")
+
+    # Without hottest heads
+    model = setup_model()
+    for i, head in enumerate(hottest_heads):
+        zero_attention_head(model=model, layer_idx=0, head_idx=head)
+
+        metrics = evaluate_metrics(
         model, val_dataloader, tokenizer_src, tokenizer_tgt,
         config['seq_len'], device, num_examples=num_examples, n_gram=2
         )
 
-    print("\n" + "="*50 + "\n")
-    print(f"Full Model - BLEU: {metrics['bleu']:.4f}")
+        data[0].append(metrics['bleu'])
+        # print(f"Layer 0 without {i+1} hottest heads - BLEU: {metrics['bleu']:.4f}")
+        # print("\n" + "="*50 + "\n")
 
-    # Layer_0
-    hottest_heads = [5, 3]
-    coldest_heads = [1, 4]
-
-    print("\n" + "="*50 + "\n")
-
-    # Without 2 hottest heads
+    # Without coldest heads
     model = setup_model()
-    for i in hottest_heads:
-        zero_attention_head(model=model, layer_idx=0, head_idx=i)
+    for i, head in enumerate(coldest_heads):
+        zero_attention_head(model=model, layer_idx=0, head_idx=head)
 
-    metrics = evaluate_metrics(
-    model, val_dataloader, tokenizer_src, tokenizer_tgt,
-    config['seq_len'], device, num_examples=num_examples, n_gram=2
-    )
+        metrics = evaluate_metrics(
+        model, val_dataloader, tokenizer_src, tokenizer_tgt,
+        config['seq_len'], device, num_examples=num_examples, n_gram=2
+        )
 
-    print(f"Layer 0 without {len(hottest_heads)} hottest heads - BLEU: {metrics['bleu']:.4f}")
-    print("\n" + "="*50 + "\n")
+        data[1].append(metrics['bleu'])
+        # print(f"Layer 0 without {i+1} coldest heads - BLEU: {metrics['bleu']:.4f}")
+        # print("\n" + "="*50 + "\n")
 
-    # Without 2 coldest heads
+    # data[0] -> BLEU dopo rimozione progressiva dei hottest heads (1,2,3)
+    # data[1] -> BLEU dopo rimozione progressiva dei coldest heads (1,2,3)
+    print("\n" + "="*60 + "\n")
+    print("BLEU comparison table (Full model vs removed heads)")
+    print("="*60)
+    print(f"{'Config':<25} | {'Hot removed':>12} | {'Cold removed':>12}")
+    print('-'*60)
+    print(f"{'Full model':<25} | {full_bleu:12.4f} | {full_bleu:12.4f}")
+    for idx in range(max(len(data[0]), len(data[1]))):
+        hot = f"{data[0][idx]:.4f}" if idx < len(data[0]) else "-"
+        cold = f"{data[1][idx]:.4f}" if idx < len(data[1]) else "-"
+        print(f"{'Without '+str(idx+1)+' head(s)':<25} | {hot:>12} | {cold:>12}")
+    print('='*60)
+
+    data = [[],[]]
+
+    # With only hottest heads
     model = setup_model()
-    for i in coldest_heads:
-        zero_attention_head(model=model, layer_idx=0, head_idx=i)
-
-    metrics = evaluate_metrics(
-    model, val_dataloader, tokenizer_src, tokenizer_tgt,
-    config['seq_len'], device, num_examples=num_examples, n_gram=2
-    )
-
-    print(f"Layer 0 without {len(coldest_heads)} coldest heads - BLEU: {metrics['bleu']:.4f}")
-    print("\n" + "="*50 + "\n")
-
-    # With only 2 hottest heads
-    model = setup_model()
-    for i in range(8):
-        if i not in hottest_heads:
+    for j in range(3):
+        hottest = hottest_heads[:j]
+        if i not in hottest:
             zero_attention_head(model=model, layer_idx=0, head_idx=i)
 
-    metrics = evaluate_metrics(
-    model, val_dataloader, tokenizer_src, tokenizer_tgt,
-    config['seq_len'], device, num_examples=num_examples, n_gram=2
-    )
+        metrics = evaluate_metrics(
+        model, val_dataloader, tokenizer_src, tokenizer_tgt,
+        config['seq_len'], device, num_examples=num_examples, n_gram=2
+        )
 
-    print(f"Layer 0 with only {len(hottest_heads)} hottest heads - BLEU: {metrics['bleu']:.4f}")
-    print("\n" + "="*50 + "\n")
+        data[0].append(metrics['bleu'])
+        # print(f"Layer 0 with only {j+1} hottest heads - BLEU: {metrics['bleu']:.4f}")
+        # print("\n" + "="*50 + "\n")
 
-    # With only 2 coldest heads
+    # With only coldest heads
     model = setup_model()
-    for i in range(8):
-        if i not in coldest_heads:
+    for j in range(3):
+        coldest = coldest_heads[:j]
+        if i not in coldest:
             zero_attention_head(model=model, layer_idx=0, head_idx=i)
 
-    metrics = evaluate_metrics(
-    model, val_dataloader, tokenizer_src, tokenizer_tgt,
-    config['seq_len'], device, num_examples=num_examples, n_gram=2
-    )
+        metrics = evaluate_metrics(
+        model, val_dataloader, tokenizer_src, tokenizer_tgt,
+        config['seq_len'], device, num_examples=num_examples, n_gram=2
+        )
 
-    print(f"Layer 0 with only {len(coldest_heads)} coldest heads - BLEU: {metrics['bleu']:.4f}")
-    print("\n" + "="*50 + "\n")
+        data[1].append(metrics['bleu'])
+        # print(f"Layer 0 with only {j+1} coldest heads - BLEU: {metrics['bleu']:.4f}")
+        # print("\n" + "="*50 + "\n") 
+
+    # data[0] -> BLEU con solo hottest heads (1,2,3)
+    # data[1] -> BLEU con solo coldest heads (1,2,3)
+    print("\n" + "="*60 + "\n")
+    print("BLEU comparison table (Full model vs remaining heads)")
+    print("="*60)
+    print(f"{'Config':<25} | {'Hot':>12} | {'Cold':>12}")
+    print('-'*60)
+    print(f"{'Full model':<25} | {full_bleu:12.4f} | {full_bleu:12.4f}")
+    for idx in range(max(len(data[0]), len(data[1]))):
+        hot = f"{data[0][idx]:.4f}" if idx < len(data[0]) else "-"
+        cold = f"{data[1][idx]:.4f}" if idx < len(data[1]) else "-"
+        print(f"{'With only '+str(idx+1)+' head(s)':<25} | {hot:>12} | {cold:>12}")
+    print('='*60)

@@ -3,6 +3,7 @@ from pathlib import Path
 from config import get_config
 from model import build_transformer
 from temperature import zero_attention_head
+from train import get_model, get_ds
 
 # Test per verificare l'azzeramento della prima head del primo layer del decoder
 
@@ -11,16 +12,12 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 config = get_config()
 
 # Costruisci il modello
-model = build_transformer(
-    src_vocab_size=15698,
-    tgt_vocab_size=22463,
-    src_seq_len=config['seq_len'],
-    tgt_seq_len=config['seq_len'],
-    d_model=config['d_model']
-).to(device)
+config = get_config()
+train_dataloader, val_dataloader, tokenizer_src, tokenizer_tgt = get_ds(config, validation=True)
+model = get_model(config, tokenizer_src.get_vocab_size(), tokenizer_tgt.get_vocab_size()).to(device)
 
 # Carica i pesi
-model_path = Path('opus_books_weights') / 'tmodel_26.pt'
+model_path = Path('opus_books_weights') / 'tmodel_30.pt'
 state = torch.load(model_path, map_location=device)
 model.load_state_dict(state['model_state_dict'])
 

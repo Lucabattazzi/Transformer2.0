@@ -3,6 +3,7 @@ from pathlib import Path
 import pandas as pd
 import matplotlib.pyplot as plt
 import numpy as np
+import torch
 
 def splice_heads(A, h=8):
     n = A.shape[0]
@@ -292,15 +293,24 @@ def zero_attention_head(model, layer_idx, head_idx, h=8):
         h: numero totale di heads
     """
     cross_attn = model.decoder.layers[layer_idx].cross_attention_block
-    
-    # Calcola la dimensione per head
-    head_dim = 512 // h  # 512 / 8 = 64
+
+    # Usa la configurazione reale del blocco attenzione, senza hardcode su d_model.
+    num_heads = cross_attn.h
+    head_dim = cross_attn.d_k
+    if head_idx < 0 or head_idx >= num_heads:
+        raise ValueError(f"head_idx {head_idx} fuori range [0, {num_heads - 1}]")
+
     start_idx = head_idx * head_dim
     end_idx = (head_idx + 1) * head_dim
-    
-    # Azzera i pesi di Query, Key e Value per questa head
-    for matrix in [cross_attn.w_q, cross_attn.w_k, cross_attn.w_v]:
-        matrix.weight.data[:, start_idx:end_idx].zero_()
+
+    # In nn.Linear: weight ha shape (out_features, in_features).
+    # Ogni head corrisponde a un blocco di out_features, quindi si azzerano le RIGHE.
+    with torch.no_grad():
+        for matrix in [cross_attn.w_q, cross_attn.w_k, cross_attn.w_v]:
+            matrix.weight[start_idx:end_idx, :].zero_()
+
+        # Opzionale ma coerente: elimina anche il contributo della head nell'output projection.
+        cross_attn.w_o.weight[:, start_idx:end_idx].zero_()
     
     # print(f"Head {head_idx} del layer {layer_idx} azzerata (colonne {start_idx}:{end_idx})")
 

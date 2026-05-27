@@ -59,7 +59,7 @@ def plot_grouped_heads(data, out_path):
 	num_layers = len(layers)
 
 	# palette: un colore per layer
-	colors = ['#4A90E2', '#FF9F43', '#2ECC71', '#E74C3C']
+	colors = ["#77A8E0", "#F5C599", "#74B48F", "#BB736B"]
 
 	width = 0.8 / max(1, num_layers)
 
@@ -73,9 +73,8 @@ def plot_grouped_heads(data, out_path):
 	# Etichette: mostra Head come 1-based (Head 1, Head 2, ...)
 	ax.set_xticks(x)
 	ax.set_xticklabels([f'Head {h+1}' for h in heads])
-	ax.set_xlabel('Head', fontsize=12, fontweight='bold')
-	ax.set_ylabel('Temperature', fontsize=12, fontweight='bold')
-	ax.set_title('Temperature per Head (gruppate per Head, barre=Layer)', fontsize=14, fontweight='bold')
+	ax.set_ylabel('Temperature', fontsize=12)
+	ax.set_title('Head Temperatures', fontsize=14,)
 	ax.grid(axis='y', linestyle='--', alpha=0.5)
 	ax.legend(title='Layer')
 

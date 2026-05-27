@@ -47,10 +47,20 @@ if __name__ == "__main__":
     print("Using device:", device)
     config = get_config()
     train_dataloader, val_dataloader, tokenizer_src, tokenizer_tgt = get_ds(config, validation=True)
+
     model = setup_model()
 
     num_examples = 5
     data = [[],[]]
+
+    metrics = evaluate_metrics(
+        model, val_dataloader, tokenizer_src, tokenizer_tgt,
+        config['seq_len'], device, num_examples=num_examples, n_gram=2
+        )
+
+    print("\n" + "="*50 + "\n")
+    print(f"Full Model - BLEU: {metrics['bleu']:.4f}")
+    full_bleu = metrics['bleu']
 
     # Layer_0
     hottest_heads = [5, 3, 6]

@@ -230,7 +230,7 @@ def zero_attention_head(model, layer_idx, head_idx, h=8):
     
     print(f"Head {head_idx} del layer {layer_idx} azzerata (colonne {start_idx}:{end_idx})")
 
-def rank_heads_by_temperature(temp_dir="temperature", num_layers=6, h=8):
+def rank_heads_by_temperature(temp_dir="temperature", num_layers=4, h=8):
     """
     Legge i file HeadTemperature per ogni layer e restituisce 6 DataFrames
     ordinati per temperatura crescente.
@@ -279,7 +279,7 @@ if __name__ == "__main__":
     # equilibrium_temperature()
     # head_temperature()
 
-    rank_heads_by_temperature(temp_dir="temperature", num_layers=6, h=8)
+    rank_heads_by_temperature(temp_dir="temperature", h=8)
     ranking = rank_heads_by_temperature()
     for layer in range(4):
         print(f"\n=== Layer {layer} ===")

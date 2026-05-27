@@ -2,7 +2,7 @@ import torch
 from torchmetrics.text import CharErrorRate, WordErrorRate, BLEUScore
 
 from config import get_config, latest_weights_file_path
-from train import get_model, get_ds, run_validation, greedy_decode, evaluate_metrics
+from train import get_model, get_ds, run_validation, greedy_decode, evaluate_metrics, calculate_validation_loss
 from temperature import zero_attention_head
 
 def setup_model():
@@ -47,11 +47,12 @@ if __name__ == "__main__":
     print("Using device:", device)
     config = get_config()
     train_dataloader, val_dataloader, tokenizer_src, tokenizer_tgt = get_ds(config, validation=True)
+    loss_fn = torch.nn.CrossEntropyLoss(ignore_index=tokenizer_tgt.token_to_id('[PAD]'))
 
     model = setup_model()
 
-    num_examples = 50
-    data = [[],[]]
+    num_examples = 5
+    data = [[],[], [], []]
 
     metrics = evaluate_metrics(
         model, val_dataloader, tokenizer_src, tokenizer_tgt,
@@ -78,7 +79,10 @@ if __name__ == "__main__":
         config['seq_len'], device, num_examples=num_examples, n_gram=2
         )
 
+        val_loss = calculate_validation_loss(model, val_dataloader, loss_fn, tokenizer_tgt, device)
+
         data[0].append(metrics['bleu'])
+        data[2].append(val_loss)
         # print(f"Layer 0 without {i+1} hottest heads - BLEU: {metrics['bleu']:.4f}")
         # print("\n" + "="*50 + "\n")
 
@@ -92,25 +96,32 @@ if __name__ == "__main__":
         config['seq_len'], device, num_examples=num_examples, n_gram=2
         )
 
+        val_loss = calculate_validation_loss(model, val_dataloader, loss_fn, tokenizer_tgt, device)
+
         data[1].append(metrics['bleu'])
+        data[3].append(val_loss)
         # print(f"Layer 0 without {i+1} coldest heads - BLEU: {metrics['bleu']:.4f}")
         # print("\n" + "="*50 + "\n")
 
     # data[0] -> BLEU dopo rimozione progressiva dei hottest heads (1,2,3)
     # data[1] -> BLEU dopo rimozione progressiva dei coldest heads (1,2,3)
+    # data[2] -> LOSS dopo rimozione progressiva dei hottest heads (1,2,3)
+    # data[3] -> LOSS dopo rimozione progressiva dei coldest heads (1,2,3)
     print("\n" + "="*60 + "\n")
     print("BLEU comparison table (Full model vs removed heads)")
     print("="*60)
-    print(f"{'Config':<25} | {'Hot removed':>12} | {'Cold removed':>12}")
-    print('-'*60)
-    print(f"{'Full model':<25} | {full_bleu:12.4f} | {full_bleu:12.4f}")
+    print(f"{'Config':<25} | {'BLEU hot':>10} | {'BLEU cold':>10} | {'Loss hot':>10} | {'Loss cold':>10}")
+    print('-'*80)
+    print(f"{'Full model':<25} | {full_bleu:10.4f} | {full_bleu:10.4f} | {'-':>10} | {'-':>10}")
     for idx in range(max(len(data[0]), len(data[1]))):
         hot = f"{data[0][idx]:.4f}" if idx < len(data[0]) else "-"
         cold = f"{data[1][idx]:.4f}" if idx < len(data[1]) else "-"
-        print(f"{'Without '+str(idx+1)+' head(s)':<25} | {hot:>12} | {cold:>12}")
-    print('='*60)
+        hot_loss = f"{data[2][idx]:.4f}" if idx < len(data[2]) else "-"
+        cold_loss = f"{data[3][idx]:.4f}" if idx < len(data[3]) else "-"
+        print(f"{'Without '+str(idx+1)+' head(s)':<25} | {hot:>10} | {cold:>10} | {hot_loss:>10} | {cold_loss:>10}")
+    print('='*80)
 
-    data = [[],[]]
+    data = [[],[], [], []]
 
     # With only hottest heads
     for j in range(1, 4):  # j = 1, 2, 3 teste calde
@@ -127,7 +138,10 @@ if __name__ == "__main__":
             config['seq_len'], device, num_examples=num_examples, n_gram=2
         )
 
+        val_loss = calculate_validation_loss(model, val_dataloader, loss_fn, tokenizer_tgt, device)
+        
         data[0].append(metrics['bleu'])
+        data[2].append(val_loss)
         # print(f"Layer 0 with only {j+1} hottest heads - BLEU: {metrics['bleu']:.4f}")
         # print("\n" + "="*50 + "\n")
 
@@ -146,20 +160,27 @@ if __name__ == "__main__":
             config['seq_len'], device, num_examples=num_examples, n_gram=2
         )
 
+        val_loss = calculate_validation_loss(model, val_dataloader, loss_fn, tokenizer_tgt, device)
+        
         data[1].append(metrics['bleu'])
+        data[3].append(val_loss)
         # print(f"Layer 0 with only {j+1} coldest heads - BLEU: {metrics['bleu']:.4f}")
         # print("\n" + "="*50 + "\n") 
 
     # data[0] -> BLEU con solo hottest heads (1,2,3)
     # data[1] -> BLEU con solo coldest heads (1,2,3)
+    # data[2] -> LOSS con solo hottest heads (1,2,3)
+    # data[3] -> LOSS con solo coldest heads (1,2,3)
     print("\n" + "="*60 + "\n")
     print("BLEU comparison table (Full model vs remaining heads)")
     print("="*60)
-    print(f"{'Config':<25} | {'Hot':>12} | {'Cold':>12}")
-    print('-'*60)
-    print(f"{'Full model':<25} | {full_bleu:12.4f} | {full_bleu:12.4f}")
+    print(f"{'Config':<25} | {'BLEU hot':>10} | {'BLEU cold':>10} | {'Loss hot':>10} | {'Loss cold':>10}")
+    print('-'*80)
+    print(f"{'Full model':<25} | {full_bleu:10.4f} | {full_bleu:10.4f} | {'-':>10} | {'-':>10}")
     for idx in range(max(len(data[0]), len(data[1]))):
         hot = f"{data[0][idx]:.4f}" if idx < len(data[0]) else "-"
         cold = f"{data[1][idx]:.4f}" if idx < len(data[1]) else "-"
-        print(f"{'With only '+str(idx+1)+' head(s)':<25} | {hot:>12} | {cold:>12}")
-    print('='*60)
+        hot_loss = f"{data[2][idx]:.4f}" if idx < len(data[2]) else "-"
+        cold_loss = f"{data[3][idx]:.4f}" if idx < len(data[3]) else "-"
+        print(f"{'With only '+str(idx+1)+' head(s)':<25} | {hot:>10} | {cold:>10} | {hot_loss:>10} | {cold_loss:>10}")
+    print('='*80)

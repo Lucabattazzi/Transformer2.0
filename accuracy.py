@@ -50,7 +50,7 @@ if __name__ == "__main__":
 
     model = setup_model()
 
-    num_examples = 5
+    num_examples = 50
     data = [[],[]]
 
     metrics = evaluate_metrics(
@@ -113,15 +113,18 @@ if __name__ == "__main__":
     data = [[],[]]
 
     # With only hottest heads
-    model = setup_model()
-    for j in range(3):
+    for j in range(1, 4):  # j = 1, 2, 3 teste calde
+        model = setup_model()  # reset fresco ad ogni iterazione
         hottest = hottest_heads[:j]
-        if i not in hottest:
-            zero_attention_head(model=model, layer_idx=0, head_idx=i)
+
+        # Azzera tutte le teste che NON sono tra le più calde
+        for head_idx in range(8):
+            if head_idx not in hottest:
+                zero_attention_head(model=model, layer_idx=0, head_idx=head_idx)
 
         metrics = evaluate_metrics(
-        model, val_dataloader, tokenizer_src, tokenizer_tgt,
-        config['seq_len'], device, num_examples=num_examples, n_gram=2
+            model, val_dataloader, tokenizer_src, tokenizer_tgt,
+            config['seq_len'], device, num_examples=num_examples, n_gram=2
         )
 
         data[0].append(metrics['bleu'])
@@ -129,15 +132,18 @@ if __name__ == "__main__":
         # print("\n" + "="*50 + "\n")
 
     # With only coldest heads
-    model = setup_model()
-    for j in range(3):
+    for j in range(1, 4):  # j = 1, 2, 3 teste calde
+        model = setup_model()  # reset fresco ad ogni iterazione
         coldest = coldest_heads[:j]
-        if i not in coldest:
-            zero_attention_head(model=model, layer_idx=0, head_idx=i)
+
+        # Azzera tutte le teste che NON sono tra le più calde
+        for head_idx in range(8):
+            if head_idx not in coldest:
+                zero_attention_head(model=model, layer_idx=0, head_idx=head_idx)
 
         metrics = evaluate_metrics(
-        model, val_dataloader, tokenizer_src, tokenizer_tgt,
-        config['seq_len'], device, num_examples=num_examples, n_gram=2
+            model, val_dataloader, tokenizer_src, tokenizer_tgt,
+            config['seq_len'], device, num_examples=num_examples, n_gram=2
         )
 
         data[1].append(metrics['bleu'])

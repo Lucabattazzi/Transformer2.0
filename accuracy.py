@@ -65,6 +65,8 @@ def create_table(bleu_samples, val_samples):
     print(f"Full Model - BLEU: {metrics['bleu']:.4f}")
     full_bleu = metrics['bleu']
 
+    full_val_loss = val_loss = calculate_validation_loss(model, val_dataloader, loss_fn, tokenizer_tgt, device, val_samples)
+
     # Layer_0
     hottest_heads = [1, 4, 0]
     coldest_heads = [5, 3, 6]
@@ -117,7 +119,7 @@ def create_table(bleu_samples, val_samples):
     print("="*80)
     print(f"{'Config':<25} | {'BLEU hot':>10} | {'BLEU cold':>10} | {'Loss hot':>10} | {'Loss cold':>10}")
     print('-'*80)
-    print(f"{'Full model':<25} | {full_bleu:10.4f} | {full_bleu:10.4f} | {'-':>10} | {'-':>10}")
+    print(f"{'Full model':<25} | {full_bleu:10.4f} | {full_bleu:10.4f} | {full_val_loss:10.4f} | {full_val_loss:10.4f}")
     for idx in range(max(len(data[0]), len(data[1]))):
         hot = f"{data[0][idx]:.4f}" if idx < len(data[0]) else "-"
         cold = f"{data[1][idx]:.4f}" if idx < len(data[1]) else "-"
@@ -181,7 +183,7 @@ def create_table(bleu_samples, val_samples):
     print("="*80)
     print(f"{'Config':<25} | {'BLEU hot':>10} | {'BLEU cold':>10} | {'Loss hot':>10} | {'Loss cold':>10}")
     print('-'*80)
-    print(f"{'Full model':<25} | {full_bleu:10.4f} | {full_bleu:10.4f} | {'-':>10} | {'-':>10}")
+    print(f"{'Full model':<25} | {full_bleu:10.4f} | {full_bleu:10.4f} | {full_val_loss:10.4f} | {full_val_loss:10.4f}")
     for idx in range(max(len(data[0]), len(data[1]))):
         hot = f"{data[0][idx]:.4f}" if idx < len(data[0]) else "-"
         cold = f"{data[1][idx]:.4f}" if idx < len(data[1]) else "-"

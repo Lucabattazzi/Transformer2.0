@@ -357,7 +357,7 @@ def plot_head_temperature_evolution(temp_dir="temperature", num_layers=4, h=8, o
         temp_dir: directory dove è salvato il file HeadTemperatureEvolution.csv
         num_layers: numero di layer decoder (default 4)
         h: numero di heads per layer (default 8)
-        output_file: percorso dove salvare il grafico (default: temperature/HeadTemperatureEvolution.png)
+        output_file: percorso dove salvare il grafico (default: temperature/HeadTemperatureEvolution.pdf)
     """
     temp_path = Path(temp_dir)
     evolution_file = temp_path / 'HeadTemperatureEvolution.csv'
@@ -402,7 +402,7 @@ def plot_head_temperature_evolution(temp_dir="temperature", num_layers=4, h=8, o
 
         # Salva il grafico
         if output_file is None:
-            output_file = temp_path / 'HeadTemperatureEvolution.png'
+            output_file = temp_path / 'HeadTemperatureEvolution.pdf'
         else:
             output_file = Path(output_file)
 
@@ -469,7 +469,7 @@ def plot_head_temperature_evolution_moving_avg(temp_dir="temperature", num_layer
 
         # Salva il grafico
         if output_file is None:
-            output_file = temp_path / f"HeadTemperatureEvolution_MovingAvg_{window_size}.png"
+            output_file = temp_path / f"HeadTemperatureEvolution_MovingAvg_{window_size}.pdf"
         else:
             output_file = Path(output_file)
 
@@ -545,7 +545,7 @@ def plot_head_temperature_evolution_binned(temp_dir="temperature", num_layers=4,
 
         # Salva il grafico
         if output_file is None:
-            output_file = temp_path / 'HeadTemperatureEvolution_Binned.png'
+            output_file = temp_path / 'HeadTemperatureEvolution_Binned.pdf'
         else:
             output_file = Path(output_file)
 

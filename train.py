@@ -529,5 +529,5 @@ def train_model(config, scheduler=True):
 
 if __name__ == '__main__':
     warnings.filterwarnings("ignore")
-    config = get_config(preload="29")
+    config = get_config(preload=30)  
     train_model(config, scheduler=True)

@@ -3,7 +3,7 @@ from pathlib import Path
 def get_config(preload=None):
     return {
         "batch_size": 18,
-        "num_epochs": 31,
+        "num_epochs": 32,
         "lr": 10**-2,
         "seq_len": 360,
         "d_model": 128,

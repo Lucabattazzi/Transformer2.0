@@ -1,0 +1,56 @@
+Ipse (il transformer) dixit:
+
+--------------------------------------------------------------------------------
+SOURCE: We live in a world where we...
+TARGET: - Viviamo in un mondo in cui...
+PREDICTED: in un mondo dove siamo ...
+
+
+ --------------------------------------------------------------------------------
+SOURCE: Time for you and me to save the world.
+TARGET: E' di nuovo giunta l'ora, per noi due, di salvare il mondo.
+PREDICTED: per me e per salvare il mondo .
+
+
+ --------------------------------------------------------------------------------
+SOURCE: It's herbal and totally mellow, and it'll just take the edge off.
+TARGET: E' fatto di erbe, ha un buon sapore e serve solo a sciogliersi un po'.
+PREDICTED: E ' e ' , e ' solo il .
+
+ --------------------------------------------------------------------------------
+SOURCE: It's beautiful.
+TARGET: E' fantastico!
+PREDICTED: E ' bella .
+--------------------------------------------------------------------------------
+SOURCE: It is therefore essential that in the report the Commission and the Council are requested to discuss violations of human rights in Chechnya during talks with Russia.
+TARGET: E’ pertanto essenziale che nella relazione venga chiesto alla Commissione e al Consiglio di intavolare l’ argomento delle violazioni dei diritti umani in Cecenia nei colloqui con la Russia.
+PREDICTED: È quindi importante che la relazione della e la ha chiesto di la umana della Russia durante la Russia .
+--------------------------------------------------------------------------------
+SOURCE: Connie...
+TARGET: Connie...
+PREDICTED: ...
+
+ --------------------------------------------------------------------------------
+SOURCE: Duncan?
+TARGET: Duncan?
+PREDICTED: ?
+
+--------------------------------------------------------------------------------
+SOURCE: The good shepherd doesn't desert his flock when wolves are prowling.
+TARGET: II buon pastore non diserta il suo gregge minacciato dai lupi.
+PREDICTED: Il buon non i suoi peccati , quando sono i suoi peccati .
+
+
+--------------------------------------------------------------------------------
+SOURCE: In that case, I'll be happy to go with you.
+TARGET: In tal caso... saro' felice di venire con te.
+PREDICTED: In questo caso , ' felice di andare con te .
+
+
+--------------------------------------------------------------------------------
+
+Frasi originali.
+
+SOURCE:  You shall not make a machine in the likeness of a human mind.
+TARGET: chiedere a nico ban 
+PREDICTED: Non una macchina in una macchina di umana .

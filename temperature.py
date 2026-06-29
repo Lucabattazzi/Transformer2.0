@@ -6,6 +6,7 @@ import numpy as np
 import torch
 
 def splice_heads(A, h=8):
+    A = A.transpose(0, 1).contiguous()
     n = A.shape[0]
     return A.view(n, h, n//h).permute(1, 0, 2).contiguous() # shape: (h, n, n//h)
 
@@ -24,7 +25,6 @@ def initialize_temperature_files(temp_dir="temperature"):
         'query': temp_path / 'crossAttentionQuery.csv',
         'key': temp_path / 'crossAttentionKey.csv',
         'value': temp_path / 'crossAttentionValue.csv',
-        'output': temp_path / 'crossAttentionOutput.csv'
     }
     
     # Crea i file con header se non esistono
@@ -39,7 +39,7 @@ def initialize_temperature_files(temp_dir="temperature"):
 def save_cross_attention_temperatures(model, global_step, frequency=50, temp_dir="temperature", h=8):
     """
     Salva la norma dei gradienti della cross-attention ogni `frequency` iterazioni.
-    Per ogni matrice di pesi (w_q, w_k, w_v, w_o), salva la norma del gradiente
+    Per ogni matrice di pesi (w_q, w_k, w_v), salva la norma del gradiente
     per ogni layer decoder separatamente su CSV.
     
     Args:
@@ -61,8 +61,7 @@ def save_cross_attention_temperatures(model, global_step, frequency=50, temp_dir
             temperatures = {
                 'query': [],
                 'key': [],
-                'value': [],
-                'output': []
+                'value': []
             }
 
             # Estrai e accumula le norme dei gradienti
@@ -83,12 +82,7 @@ def save_cross_attention_temperatures(model, global_step, frequency=50, temp_dir
                 for head_idx in range(h):
                     head_grad_norm = Wv_split[head_idx].norm().item()
                     temperatures['value'].append(head_grad_norm ** 2)
-            
-            if cross_attn.w_o.weight.grad is not None:
-                Wo_split = splice_heads(cross_attn.w_o.weight.grad, h)  # (h, 512, 64)
-                for head_idx in range(h):
-                    head_grad_norm = Wo_split[head_idx].norm().item()
-                    temperatures['output'].append(head_grad_norm ** 2)
+        
 
             # Salva tutte le norme (una colonna per ogni layer)
             temp_path = Path(temp_dir)
@@ -568,10 +562,11 @@ def plot_head_temperature_evolution_binned(temp_dir="temperature", num_layers=4,
 
 if __name__ == "__main__":
 
-    # Computa l'evoluzione delle temperature
-    compute_head_temperature_evolution(temp_dir="temperature", num_layers=4, h=8)
 
-    # Grafica l'evoluzione con diverse tecniche
-    # plot_head_temperature_evolution(temp_dir="temperature", num_layers=4, h=8)
-    plot_head_temperature_evolution_moving_avg(temp_dir="temperature", num_layers=4, h=8, window_size=250)
-    # plot_head_temperature_evolution_binned(temp_dir="temperature", num_layers=4, h=8, num_bins=20)
+    # equilibrium_temperature(temp_dir="temperature", h=8)
+    # head_temperature(temp_dir="temperature", h=8)
+    print(rank_heads_by_temperature(temp_dir="temperature", num_layers=4, h=8))
+
+
+    # compute_head_temperature_evolution(temp_dir="temperature", num_layers=4, h=8)
+    # plot_head_temperature_evolution_moving_avg(temp_dir="temperature", num_layers=4, h=8, window_size=250)

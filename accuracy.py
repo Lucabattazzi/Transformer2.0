@@ -54,6 +54,7 @@ def create_table(bleu_samples, val_samples):
 
     model = setup_model(config, tokenizer_src, tokenizer_tgt, device)
 
+
     data = [[],[], [], []]
 
     metrics = evaluate_metrics(
@@ -68,18 +69,17 @@ def create_table(bleu_samples, val_samples):
     full_val_loss = val_loss = calculate_validation_loss(model, val_dataloader, loss_fn, tokenizer_tgt, device, val_samples)
 
     # Layer_0
-    hottest_heads = [1, 4, 0]
-    coldest_heads = [5, 3, 6]
-
+    hottest_heads = [1, 5, 7]
+    coldest_heads = [0, 4, 6]
 
     print("\n" + "="*50 + "\n")
 
     # Without hottest heads
     model = setup_model(config, tokenizer_src, tokenizer_tgt, device)
     for i, head in enumerate(hottest_heads):
-        print("Removing head", head)
+        # print("Removing head", head)
         zero_attention_head(model=model, layer_idx=0, head_idx=head)
-        print(f"Layer 0 without {i+1} hottest head(s) - Evaluating...")
+        # print(f"Layer 0 without {i+1} hottest head(s) - Evaluating...")
 
         metrics = evaluate_metrics(
         model, val_dataloader, tokenizer_src, tokenizer_tgt,
@@ -195,4 +195,4 @@ def create_table(bleu_samples, val_samples):
 
 if __name__ == "__main__":
     
-    create_table(bleu_samples=50, val_samples=50)
+    create_table(bleu_samples=10, val_samples=500)

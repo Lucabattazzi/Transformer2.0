@@ -3,8 +3,8 @@ import matplotlib.pyplot as plt
 from pathlib import Path
 
 path = "opus_books_weights"
-train = 'train_loss'
-val = "val_loss"
+train = 'train'
+val = "val"
 bleu = "bleu"
 
 def view_loss(var, csv_path):
@@ -36,12 +36,14 @@ def compare_losses(var1, var2, csv_path):
     df2 = pd.read_csv(f"{csv_path}/{var2}_loss_history.csv")
 
     plt.figure(figsize=(12, 6), dpi=100)
-    plt.plot(df1['global_step'], df1['loss'], marker='.', linestyle='', alpha=0.7, label=f"{var1.capitalize()} Loss")
-    plt.plot(df2['global_step'], df2['loss'], marker='.', linestyle='', alpha=0.7, label=f"{var2.capitalize()} Loss")
-    plt.xlabel('Global Step')
-    plt.ylabel('Loss')
-    plt.title(f"Loss Comparison: {var1.capitalize()} vs {var2.capitalize()}")
-    plt.legend()
+    plt.plot(df1['global_step'], df1['loss'], marker='.', linestyle='', alpha=0.7, label=f"Training")
+    plt.plot(df2['global_step'], df2['loss'], marker='.', linestyle='', alpha=0.7, label=f"Validation")
+    plt.xlabel('Step', fontsize=16)
+    plt.ylabel('Loss', fontsize=16)
+    plt.xticks(fontsize=14)
+    plt.yticks(fontsize=14)
+    plt.title(f"Loss comparison: training vs validation",  fontsize=20)
+    plt.legend( fontsize=14)
     plt.grid(True, alpha=0.3)
     plt.tight_layout()
 
@@ -53,8 +55,8 @@ def compare_losses(var1, var2, csv_path):
 
 if __name__ == "__main__":
     # Plot singolo
-    view_loss(bleu, path)
+    # view_loss(bleu, path)
     
     # Plot comparativo (due serie)
-    # compare_losses(train, val, path)
+    compare_losses(train, val, path)
 

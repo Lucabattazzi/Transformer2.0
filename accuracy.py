@@ -194,5 +194,19 @@ def create_table(bleu_samples, val_samples):
 ######################## Execution ########################
 
 if __name__ == "__main__":
+
+    device = "cuda" if torch.cuda.is_available() else "mps" if torch.has_mps or torch.backends.mps.is_available() else "cpu"
+    print("Using device:", device)
+    if (device == 'cuda'):
+        print(f"Device name: {torch.cuda.get_device_name(device.index)}")
+        print(f"Device memory: {torch.cuda.get_device_properties(device.index).total_memory / 1024 ** 3} GB")
+    device = torch.device(device)
     
-    create_table(bleu_samples=10, val_samples=500)
+    config = get_config()
+    train_dataloader, val_dataloader, tokenizer_src, tokenizer_tgt = get_ds(config, validation=True)
+    loss_fn = torch.nn.CrossEntropyLoss(ignore_index=tokenizer_tgt.token_to_id('[PAD]'))
+
+    model = setup_model(config, tokenizer_src, tokenizer_tgt, device)
+
+    print_model_overview(model, max_depth=4)
+    # create_table(bleu_samples=10, val_samples=500)

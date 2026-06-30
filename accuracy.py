@@ -215,5 +215,5 @@ if __name__ == "__main__":
 
     model = setup_model(config, tokenizer_src, tokenizer_tgt, device)
 
-    create_table(bleu_samples=1, val_samples=300)
+    create_table(bleu_samples=1, val_samples=500)
     # create_table(bleu_samples=10, val_samples=500)

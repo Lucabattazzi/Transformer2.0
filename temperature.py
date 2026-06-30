@@ -4,6 +4,8 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
+import math
+
 
 def splice_heads(A, h=8):
     A = A.transpose(0, 1).contiguous()
@@ -353,82 +355,6 @@ def rank_heads_by_temperature(temp_dir="temperature", num_layers=4, h=8):
     return rank_dict
 
 
-# def plot_head_temperature_evolution_moving_avg(temp_dir="temperature", num_layers=4, h=8, window_size=100, output_file=None):
-#     """
-#     Grafica l'evoluzione della temperatura con MOVING AVERAGE per ridurre il rumore.
-#     Crea 4 sottografici (uno per layer).
-
-#     Args:
-#         temp_dir: directory dove è salvato il file HeadTemperatureEvolution.csv
-#         num_layers: numero di layer decoder (default 4)
-#         h: numero di heads per layer (default 8)
-#         window_size: dimensione della finestra mobile (default 50 iterazioni)
-#         output_file: percorso dove salvare il grafico
-#     """
-#     temp_path = Path(temp_dir)
-#     evolution_file = temp_path / 'HeadTemperatureEvolution.csv'
-
-#     if not evolution_file.exists():
-#         print(f"✗ File {evolution_file} non trovato. Esegui compute_head_temperature_evolution() prima.")
-#         return
-
-#     try:
-#         # Leggi il file
-#         df = pd.read_csv(evolution_file)
-
-#         # Crea figura con 4 sottografici
-#         fig, axes = plt.subplots(num_layers, 1, figsize=(14, 12))
-#         if num_layers == 1:
-#             axes = [axes]
-
-#         colors = plt.cm.tab10(np.linspace(0, 1, h))
-
-#         # Per ogni layer
-#         for layer_idx in range(num_layers):
-#             ax = axes[layer_idx]
-
-#             # Per ogni head
-#             for head_idx in range(h):
-#                 col_name = f'layer_{layer_idx}_head_{head_idx}'
-#                 if col_name in df.columns:
-#                     # Calcola moving average
-#                     smoothed = df[col_name].rolling(window=window_size, center=True).mean()
-#                     ax.plot(df['iteration'], smoothed,
-#                            label=f'Head {head_idx+1}',
-#                            color=colors[head_idx],
-#                            linewidth=2,
-#                            alpha=0.85)
-
-#             ax.set_xlabel('Step', fontsize=15)
-#             ax.set_ylabel('Temperature', fontsize=15)
-#             ax.set_title(f'Layer {layer_idx+1} - Moving Average (window={window_size})', fontsize=15, fontweight='bold')
-#             # ax.legend(loc='best', ncol=4, fontsize=10)
-#             ax.grid(True, alpha=0.3)
-
-#         handles, labels = axes[0].get_legend_handles_labels()
-
-# # Legenda unica sopra tutti i sottografici
-#         fig.legend(handles,labels,loc='upper center',bbox_to_anchor=(0.5, 0.99),ncol=4,fontsize=10)
-
-#         plt.tight_layout(rect=[0, 0, 1, 0.94])
-
-#         plt.tight_layout()
-#         plt.show()
-
-#         # Salva il grafico
-#         if output_file is None:
-#             output_file = temp_path / f"HeadTemperatureEvolution_MovingAvg_{window_size}.pdf"
-#         else:
-#             output_file = Path(output_file)
-
-#         plt.savefig(output_file, dpi=150, bbox_inches='tight')
-#         print(f"✓ Grafico Moving Average salvato in {output_file}")
-#         plt.close()
-
-#     except Exception as e:
-#         print(f"✗ Errore nel creare il grafico: {e}")
-
-
 def plot_head_temperature_evolution_moving_avg(
     temp_dir="temperature",
     num_layers=4,
@@ -438,16 +364,21 @@ def plot_head_temperature_evolution_moving_avg(
 ):
     """
     Grafica l'evoluzione della temperatura delle attention heads applicando
-    una media mobile per ridurre il rumore. Viene creato un sottografico
-    per ciascun layer decoder, con una legenda unica sopra tutti i grafici.
+    una moving average per ridurre il rumore.
+
+    I layer vengono disposti in una griglia a 2 colonne (tipicamente 2x2
+    nel caso num_layers=4), con una legenda unica posta sopra tutti i grafici.
 
     Args:
         temp_dir: directory contenente HeadTemperatureEvolution.csv
         num_layers: numero di layer decoder
         h: numero di attention heads per layer
-        window_size: dimensione della finestra della media mobile
-        output_file: percorso del file PDF/PNG in cui salvare il grafico
+        window_size: dimensione della finestra della moving average
+                     (in numero di punti del CSV)
+        output_file: percorso del file in cui salvare il grafico
     """
+
+
     temp_path = Path(temp_dir)
     evolution_file = temp_path / "HeadTemperatureEvolution.csv"
 
@@ -462,25 +393,42 @@ def plot_head_temperature_evolution_moving_avg(
         df = pd.read_csv(evolution_file)
 
         if "iteration" not in df.columns:
-            print(
-                "✗ La colonna 'iteration' non è presente nel file "
-                "HeadTemperatureEvolution.csv."
-            )
+            print("✗ La colonna 'iteration' non è presente nel CSV.")
             return
 
-        # Altezza adattata automaticamente al numero di layer.
+        # Griglia con 2 colonne: per 4 layer diventa naturalmente 2x2
+        ncols = 2
+        nrows = math.ceil(num_layers / ncols)
+
         fig, axes = plt.subplots(
-            num_layers,
-            1,
-            figsize=(14, 2.65 * num_layers + 2.4),
+            nrows=nrows,
+            ncols=ncols,
+            figsize=(17, 4.6 * nrows + 1.6),
             sharex=True
         )
 
-        if num_layers == 1:
-            axes = [axes]
+        # axes deve essere sempre un array 1D facile da indicizzare
+        axes = np.array(axes).reshape(-1)
 
-        # Stessi colori per la stessa head in tutti i layer.
-        colors = plt.cm.tab10(np.linspace(0, 1, h))
+        # Colori coerenti: stessa head = stesso colore in tutti i layer
+      
+        palette = [
+    "#332288",  # blu-violaceo
+    "#88CCEE",  # azzurro chiaro
+    "#44AA99",  # verde acqua
+    "#117733",  # verde scuro
+    "#999933",  # oliva
+    "#DDCC77",  # ocra
+    "#CC6677",  # rosso spento
+    "#882255",  # bordeaux 
+    ]
+        
+        if h > len(palette):
+            raise ValueError(
+        f"La palette contiene {len(palette)} colori, "
+        f"ma sono state richieste {h} heads.")
+
+        colors = palette[:h]
 
         for layer_idx in range(num_layers):
             ax = axes[layer_idx]
@@ -502,79 +450,96 @@ def plot_head_temperature_evolution_moving_avg(
                     label=f"Head {head_idx + 1}",
                     color=colors[head_idx],
                     linewidth=2,
-                    alpha=0.85
+                    alpha=0.88
                 )
 
-            ax.set_ylabel("Temperature", fontsize=15)
-
+            # Titolo del pannello
             ax.set_title(
                 f"Layer {layer_idx + 1}",
                 fontsize=16,
-                fontweight="bold",
-                loc="left",
-                pad=7
+                pad=10
             )
 
-            ax.grid(True, alpha=0.30)
-            ax.tick_params(axis="both", labelsize=13)
-            ax.margins(x=0.01)
+            # Griglia leggera
+            ax.grid(
+    True,
+    color="#D9D9D9",
+    linewidth=0.7,
+    alpha=0.85
+)
 
-        # Etichetta dell'asse x soltanto nell'ultimo pannello.
-        axes[-1].set_xlabel(
-            "Step",
-            fontsize=15,
-            labelpad=8
-        )
+            # Tick più leggibili
+            ax.tick_params(axis="both", labelsize=16)
 
-        # Recupera i riferimenti alla legenda dal primo layer.
+            # Piccolo margine sui bordi orizzontali
+            ax.margins(x=0.02)
+
+            # Label asse y solo per la colonna sinistra
+            if layer_idx % ncols == 0:
+                ax.set_ylabel("Temperature", fontsize=17)
+
+            # Label asse x solo per l'ultima riga
+            if layer_idx >= (nrows - 1) * ncols:
+                ax.set_xlabel("Step", fontsize=17)
+
+        # Disattiva eventuali subplot inutilizzati
+        for idx in range(num_layers, len(axes)):
+            axes[idx].axis("off")
+
+        # Legenda unica ricavata dal primo subplot attivo
         handles, labels = axes[0].get_legend_handles_labels()
 
+
+
+
+        handles, labels = axes[0].get_legend_handles_labels()
+        plot_area_center = 0.43
         fig.suptitle(
-            "Temperature of attention heads",
-            fontsize=19,
-            y=0.982
-        )
+    "Attention head temperatures",
+    fontsize=24,
+    x=plot_area_center,
+    y=0.93
+)
 
-        fig.text(
-            0.5,
-            0.950,
-            f"Moving average with window size = {window_size}",
-            ha="center",
-            va="center",
-            fontsize=15
-        )
-
-        # Legenda comune a tutti i layer.
         if handles:
-            fig.legend(
+            legend = fig.legend(
                 handles,
                 labels,
-                loc="upper center",
-                bbox_to_anchor=(0.5, 0.930),
-                ncol=4,
-                fontsize=14,
-                frameon=False,
-                handlelength=2.4,
-                columnspacing=1.8
-            )
+                loc="center left",
+                bbox_to_anchor=(0.805, 0.49),
+                ncol=1,
+                fontsize=12,
+                title_fontsize=11,
+                frameon=True,
+                fancybox=False,
+                framealpha=1.0,
+                borderaxespad=0.0,
+                handlelength=2.7,
+                handletextpad=0.7,
+                labelspacing=0.65
+                )
 
-        # Spaziatura manuale: non usare tight_layout() dopo questo punto.
+
         fig.subplots_adjust(
-            left=0.10,
-            right=0.98,
-            bottom=0.075,
-            top=0.83,
-            hspace=0.58
-        )
+    left=0.08,
+    right=0.78,
+    bottom=0.08,
+    top=0.86,
+    wspace=0.22,
+    hspace=0.34
+)
+        legend.get_frame().set_facecolor("white")
+        legend.get_frame().set_edgecolor("#BDBDBD")
+        legend.get_frame().set_linewidth(0.8)
 
-        fig.align_ylabels(axes)
 
-        # Salvataggio.
+        # Allinea le y-label tra i subplot
+        visible_axes = [ax for ax in axes[:num_layers]]
+        fig.align_ylabels(visible_axes)
+
+        # Salvataggio
         if output_file is None:
-            output_file = (
-                temp_path
-                / f"HeadTemperatureEvolution_MovingAvg_{window_size}.pdf"
-            )
+            output_file = temp_path / f"HeadTemperatureEvolution_MovingAvg_{window_size}.pdf"
         else:
             output_file = Path(output_file)
 
@@ -594,7 +559,6 @@ def plot_head_temperature_evolution_moving_avg(
 
     except Exception as e:
         print(f"✗ Errore nel creare il grafico: {e}")
-
 if __name__ == "__main__":
 
     # equilibrium_temperature()
@@ -602,7 +566,7 @@ if __name__ == "__main__":
 
     # equilibrium_temperature(temp_dir="temperature", h=8)
     # head_temperature(temp_dir="temperature", h=8)
-    print(rank_heads_by_temperature(temp_dir="temperature", num_layers=4, h=8))
+    # print(rank_heads_by_temperature(temp_dir="temperature", num_layers=4, h=8))
 
     # compute_head_temperature_evolution(temp_dir="temperature", num_layers=4, h=8)
-    # plot_head_temperature_evolution_moving_avg(temp_dir="temperature", num_layers=4, h=8, window_size=150)
+    plot_head_temperature_evolution_moving_avg(temp_dir="temperature", num_layers=4, h=8, window_size=150)

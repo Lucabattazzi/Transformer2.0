@@ -68,17 +68,20 @@ def create_table(bleu_samples, val_samples):
 
     full_val_loss = val_loss = calculate_validation_loss(model, val_dataloader, loss_fn, tokenizer_tgt, device, val_samples)
 
-    # Layer_0
-    hottest_heads = [1, 5, 7]
-    coldest_heads = [0, 4, 6]
+    # [i, j] -> i = indice layer, j = indice head
+    hottest_heads = [[0,1],[0,5],[0,7],[0,3],[0,2],[0,6]] # T decrescente (da più calda a più fredda)
+    coldest_heads = [[3,0],[3,2],[3,7],[3,4],[3,1],[3,5]] # T crescente (da più fredda a più calda)
+
 
     print("\n" + "="*50 + "\n")
 
     # Without hottest heads
     model = setup_model(config, tokenizer_src, tokenizer_tgt, device)
-    for i, head in enumerate(hottest_heads):
-        # print("Removing head", head)
-        zero_attention_head(model=model, layer_idx=0, head_idx=head)
+    for iterator in hottest_heads:
+        layer_idx, head_idx = iterator
+        print("Removing head", head_idx, "from layer", layer_idx)
+        zero_attention_head(model=model, layer_idx=layer_idx, head_idx=head_idx)
+
         # print(f"Layer 0 without {i+1} hottest head(s) - Evaluating...")
 
         metrics = evaluate_metrics(
@@ -95,8 +98,10 @@ def create_table(bleu_samples, val_samples):
 
     # Without coldest heads
     model = setup_model(config, tokenizer_src, tokenizer_tgt, device)
-    for i, head in enumerate(coldest_heads):
-        zero_attention_head(model=model, layer_idx=0, head_idx=head)
+    for iterator in coldest_heads:
+        layer_idx, head_idx = iterator
+        print("Removing head", head_idx, "from layer", layer_idx)
+        zero_attention_head(model=model, layer_idx=layer_idx, head_idx=head_idx)
 
         metrics = evaluate_metrics(
         model, val_dataloader, tokenizer_src, tokenizer_tgt,
@@ -131,14 +136,15 @@ def create_table(bleu_samples, val_samples):
     data = [[],[], [], []]
 
     # With only hottest heads
-    for j in range(1, 4):  # j = 1, 2, 3 teste calde
+    for j in range(1, 7):  # j = 1, 2, 3 teste calde
         model = setup_model(config, tokenizer_src, tokenizer_tgt, device)  # reset fresco ad ogni iterazione
         hottest = hottest_heads[:j]
 
         # Azzera tutte le teste che NON sono tra le più calde
         for head_idx in range(8):
-            if head_idx not in hottest:
-                zero_attention_head(model=model, layer_idx=0, head_idx=head_idx)
+            for layer_idx in range(4):
+                if [layer_idx, head_idx] not in hottest:
+                    zero_attention_head(model=model, layer_idx=layer_idx, head_idx=head_idx)
 
         metrics = evaluate_metrics(
             model, val_dataloader, tokenizer_src, tokenizer_tgt,
@@ -153,14 +159,15 @@ def create_table(bleu_samples, val_samples):
         # print("\n" + "="*50 + "\n")
 
     # With only coldest heads
-    for j in range(1, 4):  # j = 1, 2, 3 teste calde
+    for j in range(1, 7):  # j = 1, 2, 3 teste calde
         model = setup_model(config, tokenizer_src, tokenizer_tgt, device)  # reset fresco ad ogni iterazione
         coldest = coldest_heads[:j]
 
         # Azzera tutte le teste che NON sono tra le più calde
         for head_idx in range(8):
-            if head_idx not in coldest:
-                zero_attention_head(model=model, layer_idx=0, head_idx=head_idx)
+            for layer_idx in range(4):
+                if [layer_idx, head_idx] not in coldest:
+                    zero_attention_head(model=model, layer_idx=layer_idx, head_idx=head_idx)
 
         metrics = evaluate_metrics(
             model, val_dataloader, tokenizer_src, tokenizer_tgt,
@@ -208,5 +215,5 @@ if __name__ == "__main__":
 
     model = setup_model(config, tokenizer_src, tokenizer_tgt, device)
 
-    print_model_overview(model, max_depth=4)
+    create_table(bleu_samples=1, val_samples=300)
     # create_table(bleu_samples=10, val_samples=500)

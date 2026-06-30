@@ -602,7 +602,7 @@ if __name__ == "__main__":
 
     # equilibrium_temperature(temp_dir="temperature", h=8)
     # head_temperature(temp_dir="temperature", h=8)
-    # print(rank_heads_by_temperature(temp_dir="temperature", num_layers=4, h=8))
+    print(rank_heads_by_temperature(temp_dir="temperature", num_layers=4, h=8))
 
     # compute_head_temperature_evolution(temp_dir="temperature", num_layers=4, h=8)
-    plot_head_temperature_evolution_moving_avg(temp_dir="temperature", num_layers=4, h=8, window_size=150)
+    # plot_head_temperature_evolution_moving_avg(temp_dir="temperature", num_layers=4, h=8, window_size=150)

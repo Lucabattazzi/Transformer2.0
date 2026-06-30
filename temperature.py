@@ -447,7 +447,7 @@ def plot_head_temperature_evolution_moving_avg(
                 ax.plot(
                     df["iteration"],
                     smoothed,
-                    label=f"Head {head_idx + 1}",
+                        label=f"H{head_idx + 1}",
                     color=colors[head_idx],
                     linewidth=2,
                     alpha=0.88
@@ -476,11 +476,11 @@ def plot_head_temperature_evolution_moving_avg(
 
             # Label asse y solo per la colonna sinistra
             if layer_idx % ncols == 0:
-                ax.set_ylabel("Temperature", fontsize=17)
+                ax.set_ylabel("Temperature", fontsize=18)
 
             # Label asse x solo per l'ultima riga
             if layer_idx >= (nrows - 1) * ncols:
-                ax.set_xlabel("Step", fontsize=17)
+                ax.set_xlabel("Step", fontsize=18)
 
         # Disattiva eventuali subplot inutilizzati
         for idx in range(num_layers, len(axes)):
@@ -508,8 +508,8 @@ def plot_head_temperature_evolution_moving_avg(
                 loc="center left",
                 bbox_to_anchor=(0.805, 0.49),
                 ncol=1,
-                fontsize=12,
-                title_fontsize=11,
+                fontsize=15,
+                title_fontsize=12,
                 frameon=True,
                 fancybox=False,
                 framealpha=1.0,

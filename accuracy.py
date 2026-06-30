@@ -209,5 +209,4 @@ if __name__ == "__main__":
 
     model = setup_model(config, tokenizer_src, tokenizer_tgt, device)
 
-    print_model_overview(model, max_depth=4)
     # create_table(bleu_samples=10, val_samples=500)

@@ -1,0 +1,56 @@
+===================================================================================================================
+MODEL OVERVIEW: Transformer
+Total parameters:     12,786,111
+Trainable parameters: 12,786,111
+===================================================================================================================
+Module                                                  Type                           Direct params  Params in subtree
+-------------------------------------------------------------------------------------------------------------------
+encoder                                                 Encoder                                    0          2,370,304
+  encoder.layers                                        ModuleList                                 0          2,370,048
+    encoder.layers.0                                    EncoderBlock                               0            592,512
+      encoder.layers.0.self_attention_block             MultiHeadAttentionBlock                    0             65,536
+      encoder.layers.0.feed_forward_block               FeedForwardBlock                           0            526,464
+      encoder.layers.0.residual_connections             ModuleList                                 0                512
+    encoder.layers.1                                    EncoderBlock                               0            592,512
+      encoder.layers.1.self_attention_block             MultiHeadAttentionBlock                    0             65,536
+      encoder.layers.1.feed_forward_block               FeedForwardBlock                           0            526,464
+      encoder.layers.1.residual_connections             ModuleList                                 0                512
+    encoder.layers.2                                    EncoderBlock                               0            592,512
+      encoder.layers.2.self_attention_block             MultiHeadAttentionBlock                    0             65,536
+      encoder.layers.2.feed_forward_block               FeedForwardBlock                           0            526,464
+      encoder.layers.2.residual_connections             ModuleList                                 0                512
+    encoder.layers.3                                    EncoderBlock                               0            592,512
+      encoder.layers.3.self_attention_block             MultiHeadAttentionBlock                    0             65,536
+      encoder.layers.3.feed_forward_block               FeedForwardBlock                           0            526,464
+      encoder.layers.3.residual_connections             ModuleList                                 0                512
+  encoder.norm                                          LayerNormalization                       256                256
+decoder                                                 Decoder                                    0          2,633,472
+  decoder.layers                                        ModuleList                                 0          2,633,216
+    decoder.layers.0                                    DecoderBlock                               0            658,304
+      decoder.layers.0.self_attention_block             MultiHeadAttentionBlock                    0             65,536
+      decoder.layers.0.cross_attention_block            MultiHeadAttentionBlock                    0             65,536
+      decoder.layers.0.feed_forward_block               FeedForwardBlock                           0            526,464
+      decoder.layers.0.residual_connections             ModuleList                                 0                768
+    decoder.layers.1                                    DecoderBlock                               0            658,304
+      decoder.layers.1.self_attention_block             MultiHeadAttentionBlock                    0             65,536
+      decoder.layers.1.cross_attention_block            MultiHeadAttentionBlock                    0             65,536
+      decoder.layers.1.feed_forward_block               FeedForwardBlock                           0            526,464
+      decoder.layers.1.residual_connections             ModuleList                                 0                768
+    decoder.layers.2                                    DecoderBlock                               0            658,304
+      decoder.layers.2.self_attention_block             MultiHeadAttentionBlock                    0             65,536
+      decoder.layers.2.cross_attention_block            MultiHeadAttentionBlock                    0             65,536
+      decoder.layers.2.feed_forward_block               FeedForwardBlock                           0            526,464
+      decoder.layers.2.residual_connections             ModuleList                                 0                768
+    decoder.layers.3                                    DecoderBlock                               0            658,304
+      decoder.layers.3.self_attention_block             MultiHeadAttentionBlock                    0             65,536
+      decoder.layers.3.cross_attention_block            MultiHeadAttentionBlock                    0             65,536
+      decoder.layers.3.feed_forward_block               FeedForwardBlock                           0            526,464
+      decoder.layers.3.residual_connections             ModuleList                                 0                768
+  decoder.norm                                          LayerNormalization                       256                256
+src_embed                                               InputEmbeddings                            0          2,009,344
+  src_embed.embedding                                   Embedding                          2,009,344          2,009,344
+tgt_embed                                               InputEmbeddings                            0          2,875,264
+  tgt_embed.embedding                                   Embedding                          2,875,264          2,875,264
+projection_layer                                        ProjectionLayer                            0          2,897,727
+  projection_layer.proj                                 Linear                             2,897,727          2,897,727
+===================================================================================================================

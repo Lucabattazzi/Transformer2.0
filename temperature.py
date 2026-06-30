@@ -562,6 +562,8 @@ def plot_head_temperature_evolution_binned(temp_dir="temperature", num_layers=4,
 
 if __name__ == "__main__":
 
+    equilibrium_temperature()
+    head_temperature()
 
     # equilibrium_temperature(temp_dir="temperature", h=8)
     # head_temperature(temp_dir="temperature", h=8)

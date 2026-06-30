@@ -310,9 +310,8 @@ def zero_attention_head(model, layer_idx, head_idx, h=8):
 
 def rank_heads_by_temperature(temp_dir="temperature", num_layers=4, h=8):
     """
-    Legge i file HeadTemperature per ogni layer e restituisce una lista di liste,
-    una per layer, con gli indici delle head ordinate per temperatura crescente
-    (dalla piu fredda alla piu calda).
+    Legge i file HeadTemperature per ogni layer e restituisce 6 DataFrames
+    ordinati per temperatura crescente.
     
     Args:
         temp_dir: directory dove sono salvati i file
@@ -320,11 +319,11 @@ def rank_heads_by_temperature(temp_dir="temperature", num_layers=4, h=8):
         h: numero di heads per layer (default 8)
     
     Returns:
-        Lista di lunghezza num_layers: ogni elemento e una lista di head_idx
-        ordinate da fredda a calda per quel layer
+        Dizionario {layer_idx: DataFrame} dove ogni DataFrame ha colonne [layer, head, temperature]
+        ordinato in modo crescente per temperatura
     """
     temp_path = Path(temp_dir)
-    rank_list = []
+    rank_dict = {}
     
     for layer_idx in range(num_layers):
         head_temp_file = temp_path / f'HeadTemperatureCrossAttention_{layer_idx}.csv'
@@ -332,24 +331,26 @@ def rank_heads_by_temperature(temp_dir="temperature", num_layers=4, h=8):
         try:
             # Leggi il file
             df = pd.read_csv(head_temp_file)
-
-            # Estrai (head_idx, temperatura) e ordina per temperatura crescente.
-            head_temps = []
+            
+            # Converti in forma "lunga" con colonne [layer, head, temperature]
+            data = []
             for head_idx in range(h):
                 head_col = f'head_{head_idx}'
                 if head_col in df.columns:
                     temp_value = df[head_col].values[0]
-                    head_temps.append((head_idx, temp_value))
-
-            sorted_heads = [head_idx for head_idx, _ in sorted(head_temps, key=lambda x: x[1])]
-            rank_list.append(sorted_heads)
+                    data.append({'layer': layer_idx, 'head': head_idx, 'temperature': temp_value})
+            
+            # Crea il DataFrame e ordinalo per temperature crescente
+            df_layer = pd.DataFrame(data)
+            df_layer = df_layer.sort_values('temperature', ascending=True).reset_index(drop=True)
+            
+            rank_dict[layer_idx] = df_layer
 
             
         except FileNotFoundError:
             print(f"✗ Errore: file HeadTemperatureCrossAttention_{layer_idx}.csv non trovato")
-            rank_list.append([])
     
-    return rank_list
+    return rank_dict
 
 def plot_head_temperature_evolution(temp_dir="temperature", num_layers=4, h=8, output_file=None):
     """
@@ -561,8 +562,6 @@ def plot_head_temperature_evolution_binned(temp_dir="temperature", num_layers=4,
 
 if __name__ == "__main__":
 
-    equilibrium_temperature()
-    head_temperature()
 
     # equilibrium_temperature(temp_dir="temperature", h=8)
     # head_temperature(temp_dir="temperature", h=8)
